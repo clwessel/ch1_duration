@@ -1,0 +1,194 @@
+```{r}
+library(tidyverse)
+library(rstudioapi)
+library(Hmisc)
+```
+
+```{r}
+# Put experiment ID here:
+expid <- "14"
+# Load data
+mkdir <- dirname(getActiveDocumentContext()$path)
+mkdir <- gsub("rcode", "", mkdir)
+mkdir <- paste0(mkdir, "data")
+setwd(mkdir)
+ref <- which(grepl(paste(expid, "_", sep = ""), dir(), fixed = TRUE))
+data <- read_csv(dir()[ref])
+reversals <- 4
+```
+
+```{r}
+# Select final 4 reversals in each staircase for each Participant
+last_revs <- data.frame()
+for (i in unique(data$Participant)) {
+  for (j in unique(data$start_id)) {
+    for (k in unique(data$type)) {
+      for (l in unique(data$envelope_1)) {
+        for (m in unique(data$repetition)) {
+          for (n in unique(data$direction)) {
+            rev = subset(data, Participant == i & type == k & envelope_1 == l & repetition == m & direction == n & l_reversal == 1)
+            if (!j %in% rev$start_id) next
+            rev = subset(rev, start_id == j)
+            num = length(rev$l_reversal) - reversals
+            rev = rev[-c(1:num),]
+            last_revs <- rbind(last_revs, rev)
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+```{r}
+# Categorise each reversal
+k = 1
+for (i in 1:nrow(last_revs)) {
+  if (k > reversals) k = 1
+  last_revs$trial_num[i] <- k
+  k = k + 1
+}
+```
+
+```{r}
+# Group and condense response/reversal data
+revs <- last_revs |> 
+  group_by(Participant, start_id, direction, envelope_1, type, repetition, trial_num) |> 
+  summarise("Level" = mean(second - first)) |> 
+  mutate("trial_num" = as.integer(trial_num), "start_id" = factor(start_id)) |> 
+  arrange(Participant, start_id, direction, envelope_1, type, repetition, trial_num)
+```
+
+```{r}
+# Calculate PSE for each standard and envelope for each participant (and Z scores)
+pse <- revs |> 
+  group_by(Participant, start_id, envelope_1, type, repetition) |> 
+  summarise("PSE" = mean(Level))
+pse$PSEZ <- ((pse$PSE - mean(pse$PSE)) / sd(pse$PSE))
+
+pse$PSEtotal <- 0
+pse$standard <- 0
+for (i in 1:length(unique(pse$envelope_1))) {
+  for (j in 1:length(unique(pse$start_id))) {
+    e <- unique(pse$envelope_1)[i]
+    if (!j %in% unique(pse$start_id[pse$envelope_1 == e])) next
+    pse$PSEtotal[pse$envelope_1 == unique(pse$envelope_1)[i] & pse$start_id == j] <- data$first[data$envelope_1 == unique(pse$envelope_1)[i] & data$start_id == j] + pse$PSE[pse$envelope_1 == unique(pse$envelope_1)[i] & pse$start_id == j]
+    pse$standard[pse$envelope_1 == unique(pse$envelope_1)[i] & pse$start_id == j] <- data$first[data$envelope_1 == unique(pse$envelope_1)[i] & data$start_id == j]
+  }
+}
+pse_new <- pse[rep(seq_len(nrow(pse)), each = 2), ]
+for (i in 1:length(pse_new$Participant)) {
+  if ((i %% 2) == 0) {
+    pse_new$PSEtotal[i] <- pse_new$PSEtotal[i] - pse_new$PSE[i]
+  }
+}
+pse$ratio <- pse$PSEtotal / pse$standard
+pse$recip <- ifelse(pse$envelope_1 == "perc", (1 / pse$ratio), pse$ratio)
+pse$recip[pse$type == "Homogeneous"] <- pse$ratio[pse$type == "Homogeneous"]
+```
+
+```{r}
+discrep <- revs |> 
+  group_by(Participant, start_id, envelope_1, type, repetition, direction) |> 
+  summarise("PSE" = mean(Level)) |> 
+  pivot_wider(names_from = direction, values_from = PSE) |> 
+  mutate("discrepency" = Above - Below) 
+```
+
+```{r}
+ycoords <- revs |> 
+  group_by(Participant, start_id, envelope_1, type, repetition, direction) |> 
+  summarise("PSE" = mean(Level)) |> 
+  mutate("coord" = "Y")
+xcoords <- ycoords
+xcoords$coord <- "X"
+coords <- rbind(ycoords, xcoords) |> 
+  arrange(envelope_1) |> 
+  arrange(start_id) |> 
+  arrange(Participant) |> 
+  pivot_wider(names_from = coord, values_from = PSE)
+coords <- coords[rep(seq_len(nrow(coords)), each = 2), ]
+coords$X <- rep_len(c(0,95,95,0), length.out = nrow(coords))
+for (i in 1:length(unique(pse$envelope_1))) {
+  for (j in 1:length(unique(pse$start_id))) {
+    e <- unique(pse$envelope_1)[i]
+    if (!j %in% unique(pse$start_id[pse$envelope_1 == e])) next
+    coords$Y[coords$envelope_1 == unique(pse$envelope_1)[i] & coords$start_id == j] <- data$first[data$envelope_1 == unique(coords$envelope_1)[i] & data$start_id == j] + coords$Y[coords$envelope_1 == unique(coords$envelope_1)[i] & coords$start_id == j]
+  }
+}
+```
+
+```{r}
+minmax <- c()
+for (i in unique(coords$Participant)) {
+  for (j in unique(coords$start_id)) {
+    for (k in unique(coords$envelope_1)) {
+      for (l in unique(coords$repetition)) {
+        for (m in unique(coords$type)) {
+          if (!m %in% unique(data$type[data$Participant == i & data$start_id == j & data$envelope_1 == k & data$repetition == l])) next
+          above = max(data$trial_num[data$Participant == i & data$start_id == j & data$envelope_1 == k & data$repetition == l & data$type == m & data$direction == "Above"])
+          below = max(data$trial_num[data$Participant == i & data$start_id == j & data$envelope_1 == k & data$repetition == l & data$type == m & data$direction == "Below"])
+          minmax = c(above, below)
+          coords$X[coords$Participant == i & coords$start_id == j & coords$envelope_1 == k & coords$repetition == l & coords$type == m] <- ifelse(
+            coords$X[coords$Participant == i & coords$start_id == j & coords$envelope_1 == k & coords$repetition == l & coords$type == m] == 0,
+            min(minmax), 
+            max(minmax))
+        }
+      }
+    }
+  }
+}
+```
+
+```{r}
+envelopes <- data.frame("Participant" = pse$Participant, "start_id" = pse$start_id, "envelope_1" = pse$envelope_1, "type" = pse$type, "repetition" = pse$repetition, "Flat" = 0, "Percussive" = 0)
+
+for (i in 1:length(pse$Participant)) {
+  envelopes$Flat[i] <- ifelse(pse$envelope_1[i] == "flat", pse$standard[i], pse$PSEtotal[i])
+}
+for (i in 1:length(pse$Participant)) {
+  envelopes$Percussive[i] <- ifelse(pse$envelope_1[i] == "perc", pse$standard[i], pse$PSEtotal[i])
+}
+
+data$ratio <- 0
+data$ratio[data$envelope_1 == "flat"] <- data$second[data$envelope_1 == "flat"] / data$first[data$envelope_1 == "flat"]
+data$ratio[data$envelope_1 == "perc"] <- data$first[data$envelope_1 == "perc"] / data$second[data$envelope_1 == "perc"]
+data$resp2 <- 0
+data$resp2[data$envelope_1 == "perc" & data$type == "Heterogenous"] <- ifelse(data$resp[data$envelope_1 == "perc"] == 0, 1, 0)
+data$resp2[data$envelope_1 == "flat" & data$type == "Heterogenous"] <- data$resp[data$envelope_1 == "flat"]
+data$resp2[data$type == "Homogenous"] <- data$resp[data$type == "Homogenous"]
+```
+
+```{r}
+hetpse <- pse[pse$type == "Heterogenous",]
+hompse <- pse[pse$type == "Homogenous",]
+
+envelopes2 <- rbind(envelopes[envelopes$type == "Heterogenous",], envelopes[envelopes$type == "Heterogenous",])
+envelopes2$Participant[101:200] <- "Overall"
+pse2 <- rbind(hompse, hompse)
+pse2$Participant <- as.character(pse2$Participant)
+pse2$Participant[101:200] <- "Overall"
+poly <- data.frame(x = c(800, 1700, 1700, 800), y = c(600, 600, 200, 200))
+pseall <- rbind(pse, pse)
+pseall$Participant <- as.character(pseall$Participant)
+pseall$Participant[201:400] <- "Overall"
+pseall <- pseall |> 
+  group_by(Participant, standard, envelope_1, type) |> 
+  summarise(m = max(PSEtotal))
+pseall <- pseall |> slice(rep(1:n(), each = 2))
+pseall$m[seq(0, (nrow(pseall) - 2), 2) + 1] <- 200
+pseall$m[pseall$type == "Homogenous" & pseall$envelope_1 == "perc" & pseall$m == 200] <- 1700
+pseall$m[pseall$type == "Homogenous" & pseall$envelope_1 == "perc" & pseall$m != 1700] <- pse2 |> 
+  filter(type == "Homogenous" & envelope_1 == "perc") |> 
+  group_by(Participant, standard) |> 
+  summarise(m = min(PSEtotal)) |> 
+  pull(m)
+pse2$envelope_1 <- factor(pse2$envelope_1)
+envelopes2$envelope_1 <- factor(envelopes2$envelope_1)
+pse2$group <- rep(pse2$Participant[1:(nrow(pse2) / 2)], 2)
+envelopes2$group <- rep(envelopes2$Participant[1:(nrow(envelopes2) / 2)], 2)
+pseall$m[pseall$type == "Homogenous" & pseall$Participant == "Overall" & pseall$m == 1700] <- 200
+pseall$m[pseall$type == "Homogenous" & pseall$Participant == "Overall" & pseall$m != 200] <- 1700
+pseall$m[pseall$type == "Heterogenous" & pseall$Participant == "Overall" & pseall$m != 200] <- 1700
+```
+
