@@ -1,4 +1,17 @@
 ```{r}
+library(rstudioapi)
+library(Hmisc)
+library(patchwork)
+library(ggpubr)
+expid <- 15
+setwd(dirname(getActiveDocumentContext()$path))
+source("data_preprocess.r")
+active_wd("plots", TRUE)
+```
+
+# Staircase plot
+
+```{r}
 for (i in unique(data$Participant)) {
   data |> 
     filter(Participant == i) |> 
@@ -56,11 +69,14 @@ for (i in unique(data$Participant)) {
 }
 ```
 
+# Boxplots
+
+## Homogenous boxplot
 ```{r}
 pse[pse$type == "Homogenous",] |> 
   ggplot(aes(factor(standard), recip, fill = envelope_1)) +
   geom_boxplot(notch = T, outlier.alpha = 0) +
-  geom_hline(data = m, aes(yintercept = median(pse$recip[pse$type == "Homogenous"])), linetype = 2, alpha = 0.7) +
+  geom_hline(yintercept = median(pse$recip[pse$type == "Homogenous"]), linetype = 2, alpha = 0.7) +
   theme_classic() +
   # coord_cartesian(ylim = c(0.75, 1.25)) +
   labs(x = "Standard duration (ms)", y = "Standard : Comparator ratio") +
@@ -68,11 +84,12 @@ pse[pse$type == "Homogenous",] |>
 # ggsave("/Users/connorwessel/Downloads/combined manuscript data/boxplot_homo.pdf")
 ```
 
+## Heterogenous boxplot
 ```{r}
 pse[pse$type == "Heterogenous",] |> 
   ggplot(aes(factor(standard), recip, fill = envelope_1)) +
   geom_boxplot(notch = T, outlier.alpha = 0) +
-  geom_hline(data = m, aes(yintercept = median(pse$recip[pse$type == "Heterogenous"])), linetype = 2, alpha = 0.7) +
+  geom_hline(yintercept = median(pse$recip[pse$type == "Heterogenous"]), linetype = 2, alpha = 0.7) +
   theme_classic() +
   # coord_cartesian(ylim = c(0.75, 1.25)) +
   labs(x = "Standard duration (ms)", y = "Flat : Percussive ratio") +
@@ -80,6 +97,7 @@ pse[pse$type == "Heterogenous",] |>
 # ggsave("/Users/connorwessel/Downloads/combined manuscript data/boxplot_hetero.pdf")
 ```
 
+## Both boxplot
 ```{r}
 m <- pse |> 
   group_by(type) |> 
@@ -93,35 +111,12 @@ pse |>
   labs(x = "Standard duration (ms)", y = "Flat : Percussive ratio") +
   scale_fill_manual("Standard Envelope", values = c("cornflowerblue", "grey"), labels = c("Flat", "Percussive")) +
   facet_wrap(~type, nrow = 2, ncol = 1)
-ggsave("boxplot.pdf")
+# ggsave("boxplot.pdf")
 ```
 
-```{r}
-#| echo: false
-het <- hetpse |> 
-  ggplot(aes(x = Participant, y = recip)) +
-  geom_boxplot(notch = T, outlier.alpha = 0, fill = "darkgrey") +
-  geom_hline(yintercept = median(hetpse$recip), linetype = 2) +
-  theme_classic() +
-  xlab("Participant") +
-  ylab("Ratio") +
-  coord_cartesian(ylim = c(1,2.1)) +
-  facet_wrap(~type)
-hom <- hompse |> 
-  ggplot(aes(x = Participant, y = recip, fill = envelope_1)) +
-  geom_boxplot(notch = T, outlier.alpha = 0, fill = "darkgrey") +
-  geom_hline(yintercept = median(hompse$recip), linetype = 2) +
-  theme_classic() +
-  xlab("Participant") +
-  ylab("Ratio") +
-  coord_cartesian(ylim = c(0.8,1.2)) +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank()) +
-  facet_wrap(~type)
-(hom / het) + plot_layout(guides = "collect", axis_titles = "collect")
-ggsave("participant_ratio.pdf", height = 5.2, width = 7)
-```
+# Regression plots
 
+## Heterogenous faceted regression
 ```{r}
 envelopes |> 
   ggplot(aes(x = Flat, y = Percussive)) +
@@ -135,11 +130,12 @@ envelopes |>
   stat_regline_equation(label.x = 850, label.y = 500, aes(label = ..eq.label..), size = 3) +
   scale_shape_manual("Standard envelope", labels = c("Flat", "Percussive"), values = c("square", "triangle")) +
   facet_wrap(~Participant)
-ggsave("heteroreg_facet.pdf", width = 15, height = 12)
+# ggsave("heteroreg_facet.pdf", width = 15, height = 12)
 ```
 
+## Homogenous faceted regression
 ```{r}
-psehomo |> 
+hompse |> 
   ggplot(aes(x = standard, y = PSEtotal)) +
   geom_point(aes(shape = envelope_1)) +
   geom_line(stat = "smooth", method = "lm", formula = y ~ poly(x,1), se = FALSE, alpha = 0.6) +
@@ -150,9 +146,10 @@ psehomo |>
   stat_regline_equation(label.x = 850, label.y = 500, aes(label = ..eq.label..), size = 3) +
   scale_shape_manual("Standard envelope", labels = c("Flat", "Percussive"), values = c("square", "triangle")) +
   facet_wrap(~Participant)
-ggsave("homoreg_facet.pdf", width = 15, height = 12)
+# ggsave("homoreg_facet.pdf", width = 15, height = 12)
 ```
 
+## Heterogenous aggregated regression
 ```{r}
 envelopes <- envelopes[envelopes$type == "Heterogenous",]
 envelopes |> 
@@ -170,12 +167,12 @@ envelopes |>
   coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
   theme(legend.position = "none")
   
-ggsave("/Users/connorwessel/Downloads/combined manuscript data/heteroreg_combined.pdf", height = 6, width = 6)
+# ggsave("/Users/connorwessel/Downloads/combined manuscript data/heteroreg_combined.pdf", height = 6, width = 6)
 ```
 
+## Homogenous aggregated regression
 ```{r}
-psehomo <- pse[pse$type == "Homogenous",]
-psehomo |> 
+hompse |> 
   ggplot(aes(x = standard, y = PSEtotal)) +
   geom_line(aes(color = factor(Participant)), stat = "smooth", method = "lm", alpha = 0.3) +
   geom_smooth(method = "lm", formula = y ~ poly(x,1), se = TRUE, alpha = 1, color = "black") +
@@ -187,10 +184,42 @@ psehomo |>
   labs(x = "Standard (ms)", y = "Comparator (ms)") +
   scale_x_continuous(breaks = c(450, 750, 1250), limits = c(200, 1700)) +
   theme(legend.position = "none")
-ggsave("/Users/connorwessel/Downloads/combined manuscript data/homoreg_combined.pdf", height = 6, width = 6)
+# ggsave("/Users/connorwessel/Downloads/combined manuscript data/homoreg_combined.pdf", height = 6, width = 6)
 ```
 
+# Exp 3 (Summer) plots
+
+## Regression per participant
 ```{r}
+hetpse <- pse[pse$type == "Heterogenous",]
+hompse <- pse[pse$type == "Homogenous",]
+envelopes2 <- rbind(envelopes[envelopes$type == "Heterogenous",], envelopes[envelopes$type == "Heterogenous",])
+envelopes2$Participant[101:200] <- "Overall"
+pse2 <- rbind(hompse, hompse)
+pse2$Participant <- as.character(pse2$Participant)
+pse2$Participant[101:200] <- "Overall"
+poly <- data.frame(x = c(800, 1700, 1700, 800), y = c(600, 600, 200, 200))
+pseall <- rbind(pse, pse)
+pseall$Participant <- as.character(pseall$Participant)
+pseall$Participant[201:400] <- "Overall"
+pseall <- pseall |> 
+  group_by(Participant, standard, envelope_1, type) |> 
+  summarise(m = max(PSEtotal))
+pseall <- pseall |> slice(rep(1:n(), each = 2))
+pseall$m[seq(0, (nrow(pseall) - 2), 2) + 1] <- 200
+pseall$m[pseall$type == "Homogenous" & pseall$envelope_1 == "perc" & pseall$m == 200] <- 1700
+pseall$m[pseall$type == "Homogenous" & pseall$envelope_1 == "perc" & pseall$m != 1700] <- pse2 |> 
+  filter(type == "Homogenous" & envelope_1 == "perc") |> 
+  group_by(Participant, standard) |> 
+  summarise(m = min(PSEtotal)) |> 
+  pull(m)
+pse2$envelope_1 <- factor(pse2$envelope_1)
+envelopes2$envelope_1 <- factor(envelopes2$envelope_1)
+pse2$group <- rep(pse2$Participant[1:(nrow(pse2) / 2)], 2)
+envelopes2$group <- rep(envelopes2$Participant[1:(nrow(envelopes2) / 2)], 2)
+pseall$m[pseall$type == "Homogenous" & pseall$Participant == "Overall" & pseall$m == 1700] <- 200
+pseall$m[pseall$type == "Homogenous" & pseall$Participant == "Overall" & pseall$m != 200] <- 1700
+pseall$m[pseall$type == "Heterogenous" & pseall$Participant == "Overall" & pseall$m != 200] <- 1700
 hom <- pse2 |> 
   ggplot(aes(x = standard, y = PSEtotal)) +
   geom_point(data = pse2[pse2$Participant != "Overall",], aes(shape = envelope_1, color = envelope_1), alpha = 1, size = 2) +
@@ -243,4 +272,32 @@ het <- envelopes2 |>
 ggsave("plot2.pdf", height = 12, width = 36)
 ```
 
+## Boxplot per participant
+```{r}
+#| echo: false
+hetpse <- pse[pse$type == "Heterogenous",]
+hompse <- pse[pse$type == "Homogenous",]
+het <- hetpse |> 
+  ggplot(aes(x = factor(Participant), y = recip)) +
+  geom_boxplot(notch = T, outlier.alpha = 0, fill = "darkgrey") +
+  geom_hline(yintercept = median(hetpse$recip), linetype = 2) +
+  theme_classic() +
+  xlab("Participant") +
+  ylab("Ratio") +
+  coord_cartesian(ylim = c(1,2.1)) +
+  facet_wrap(~type)
+hom <- hompse |> 
+  ggplot(aes(x = factor(Participant), y = recip, fill = envelope_1)) +
+  geom_boxplot(notch = T, outlier.alpha = 0, fill = "darkgrey") +
+  geom_hline(yintercept = median(hompse$recip), linetype = 2) +
+  theme_classic() +
+  xlab("Participant") +
+  ylab("Ratio") +
+  coord_cartesian(ylim = c(0.8,1.2)) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  facet_wrap(~type)
+(hom / het) + plot_layout(guides = "collect", axis_titles = "collect")
+# ggsave("participant_ratio.pdf", height = 5.2, width = 7)
+```
 
