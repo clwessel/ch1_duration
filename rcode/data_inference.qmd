@@ -1,0 +1,63 @@
+```{r}
+library(brms)
+```
+
+
+```{r}
+library(rstudioapi)
+expid <- 15
+source(paste0(dirname(getActiveDocumentContext()$path), "/data_preprocess.r"))
+```
+
+```{r}
+# Discrepancy plots
+lines <- data.frame(
+    quartiles = c(
+        summary(abs(pse$discrepancy[discrep$type == "Homogenous"]))[c(2, 3, 5)],
+        summary(abs(pse$discrepancy[discrep$type == "Heterogenous"]))[c(2, 3, 5)]
+    ),
+    type = rep(unique(discrep$type), each = 3)
+)
+discrep |>
+    ggplot(aes(abs(discrepancy))) +
+    geom_histogram(color = "black", fill = "cornflowerblue") +
+    geom_vline(data = lines, aes(xintercept = quartiles),
+    # linetype = 2,
+    # alpha = 0.7,
+    color = "red") +
+    theme_classic() +
+    scale_y_continuous(expand = c(0,0)) +
+    facet_wrap(~type)
+```
+
+```{r}
+excludeid <- which(
+    abs(pse$discrepancy) > ifelse(
+        pse$type == "Homogenous",
+        summary(abs(pse$discrepancy[pse$type == "Homogenous"]))[5],
+        summary(abs(pse$discrepancy[pse$type == "Heterogenous"]))[5]
+    )
+)
+```
+
+```{r}
+homogenous_priors <- c(
+    prior(normal(0, 100), class = Intercept),
+    prior(normal(1, 0.1), class = b, coef = "standard")
+)
+homogenous_model <- brm(
+    PSEtotal ~ standard + (1|Participant),
+    data = pse[pse$type == "Homogenous",],
+    family = gaussian(),
+    prior = homogenous_priors,
+    sample_prior = "yes",
+    chains = 6,
+    cores = 6,
+    iter = 8000,
+    warmup = 1000,
+    thin = 4,
+    seed = 1
+)
+summary(homogenous_model)
+# Notes to self - check pilot hetero data for priors, make sure to format data files for new code, push changes now to github, then push dataset changes in a separate commit.
+```

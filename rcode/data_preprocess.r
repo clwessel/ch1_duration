@@ -83,7 +83,9 @@ discrep <- revs |>
   group_by(Participant, start_id, envelope_1, type, repetition, direction) |> 
   summarise("PSE" = mean(Level)) |> 
   pivot_wider(names_from = direction, values_from = PSE) |> 
-  mutate("discrepency" = Above - Below) 
+  mutate("discrepancy" = Above - Below) 
+
+pse$discrepancy <- discrep$discrepancy
 
 ycoords <- revs |> 
   group_by(Participant, start_id, envelope_1, type, repetition, direction) |> 

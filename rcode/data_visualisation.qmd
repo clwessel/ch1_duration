@@ -1,11 +1,13 @@
 ```{r}
-library(rstudioapi)
-library(Hmisc)
 library(patchwork)
 library(ggpubr)
+```
+
+
+```{r}
+library(rstudioapi)
 expid <- 15
-setwd(dirname(getActiveDocumentContext()$path))
-source("data_preprocess.r")
+source(paste0(dirname(getActiveDocumentContext()$path),"/data_preprocess.r"))
 active_wd("plots", TRUE)
 ```
 
