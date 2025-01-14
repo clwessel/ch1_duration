@@ -5,7 +5,7 @@ library(brms)
 
 ```{r}
 library(rstudioapi)
-expid <- 15
+expid <- "13"
 source(paste0(dirname(getActiveDocumentContext()$path), "/data_preprocess.r"))
 ```
 
@@ -45,6 +45,7 @@ homogenous_priors <- c(
     prior(normal(0, 100), class = Intercept),
     prior(normal(1, 0.1), class = b, coef = "standard")
 )
+pse$Participant <- as.factor(pse$Participant)
 homogenous_model <- brm(
     PSEtotal ~ standard + (1|Participant),
     data = pse[pse$type == "Homogenous",],
@@ -59,5 +60,27 @@ homogenous_model <- brm(
     seed = 1
 )
 summary(homogenous_model)
-# Notes to self - check pilot hetero data for priors, make sure to format data files for new code, push changes now to github, then push dataset changes in a separate commit.
+```
+
+```{r}
+heterogenous_priors <- c(
+    prior(normal(360, 150), class = Intercept),
+    prior(normal(1, 0.3), class = b, coef = "Flat")
+)
+envelopes$Participant <- as.factor(envelopes$Participant)
+heterogenous_model <- brm(
+    Percussive ~ Flat + (1|Participant),
+    data = envelopes[envelopes$type == "Heterogenous",],
+    family = gaussian(),
+    prior = heterogenous_priors,
+    sample_prior = "yes",
+    chains = 6,
+    cores = 6,
+    iter = 8000,
+    warmup = 1000,
+    thin = 4,
+    seed = 1
+)
+summary(heterogenous_model)
+hypothesis()
 ```
