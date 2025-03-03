@@ -1,0 +1,349 @@
+# analysis of PSE (N=5) experiment
+
+# the mixed-model analyses are done using the nlme package
+
+# Pinheiro JC, Bates DM (2000). _Mixed-Effects Models in S and S-PLUS_.
+# Springer, New York. doi:10.1007/b98882 <https://doi.org/10.1007/b98882>
+
+# Most of the analyses can be performed with lme4 and lmerTest. However,
+# the nlme package has several commands for graphing data/results (e.g., plot(augPred(model)))
+# that are quite useful. Also, the nlme package makes it easy to create a mixed-effects
+# regression model which assumes that the variance of the within-subject residuals is NOT constant
+# across levels of the covariate (the "standard" duration, in this case). It turns our that this
+# type of heteroscedatic model fits the data significantly better.
+
+# The book is available on-line from the library.
+# Chapters 1 & 4 illustrate how to fit mixed-effects models to several
+# data sets. Sections 1.4 & 4.2 are particularly relevant to your data.
+# Section 4.3 illustrates commands that can be used to evaluate the goodness of
+# fit. Finally, Chapter 5 describes how the framework can be extended to handle
+# cases where the within-participant residuals are not constant variance and/or
+# independent. My analyses have assumed independence but I did fit models that allowed
+# the variance of the residuals to vary according to a power-function of abs(standard).
+# Section 5.2.2 shows how to create a heteroscedatic model like the one I used.
+
+
+
+
+# initialize ---------
+
+options(contrasts = c("contr.sum", "contr.poly"))
+library(nlme)
+library(lme4)
+library(lattice)
+
+combined <- read.csv("combined_exp3.csv", stringsAsFactors = T)
+het3 <- combined[combined$type == "Heterogenous",]
+het3$repetition <- as.factor(het3$repetition)
+het3$Participant <- factor(het3$Participant, labels = "p")
+
+
+# nlme defines a groupedData object...
+#  it is is a special type of data frame that allows us to use augPred command
+
+het3 <- groupedData(formula = y ~ x | Participant, data = het3)
+class(het3)
+summary(het3)
+
+# homogeneous variance models ---------
+# create model assuming error variance is constant across all levels of standard duration
+
+all.lme.01 <- lme(fixed = y ~ x * envelope_1 * repetition, random = ~ 1 + x | Participant, data = het3)
+anova(all.lme.01)
+
+# dropping envelope_1
+all.lme.02 <- lme(fixed = y ~ x * repetition, random = ~ 1 + x | Participant, data = het3)
+anova(all.lme.02)
+
+# dropping repetition
+all.lme.03 <- lme(fixed = y ~ x, random = ~ 1 + x | Participant, data = het3)
+anova(all.lme.03)
+
+# compare models using AIC & BIC measures (lower values are better)
+# need to refit models using ML instead of default REML because they have different fixed effects
+anova(
+     update(all.lme.01, method = "ML"),
+     update(all.lme.02, method = "ML"),
+     update(all.lme.03, method = "ML")
+) # model 02 is best:
+
+# first check the full model:
+dat.fitted <- augPred(all.lme.01)
+plot(dat.fitted, main = "all data (full model 01) N=5")
+summary(all.lme.01)
+coef(summary(all.lme.01)) # values of fixed effects
+anova(all.lme.01) # anova on fixed effects
+VarCorr(all.lme.01) # variance of random effects
+# SD(intercept) = 0.59; SD(slope) = 0.17 [VERY SMALL SDs!]
+coef(all.lme.01) # coefficients for individual subjects
+ranef(all.lme.01) # lists values of random effects for individual subjects
+
+# evaluate statistical significance of random effects
+# gls is an nlme-defined command that uses Generalized Least Squares to fit a fixed-effects model
+all.lm.01 <- gls(y ~ x * envelope_1 * repetition, data = het3) # create a fixed-effects model with no random effects
+anova(all.lm.01, all.lme.01) # mixed-effects model is better
+
+# check residuals:
+# N.B. Using pearson/standardized residuals gives the same results as
+# the regular "raw" residuals IN THIS CASE
+qqnorm(residuals(all.lm.01, type = "p"), main = "all data (full model) N=5")
+qqline(residuals(all.lm.01, type = "p")) # slight positive skew
+boxplot(residuals(all.lm.01, type = "p"), main = "all data (full model) N=5", ylab = "residuals")
+# following plots suggest that variance is not constant across "standard"
+plot(all.lme.01, resid(., type = "p") ~ fitted(.) | Participant, abline = 0, main = "all data full model")
+plot(all.lme.01, resid(., type = "p") ~ fitted(.), abline = 0, main = "all data full model")
+
+# now check "best-fitting" model 02:
+plot(augPred(all.lme.02), main = "all data (model 02) N=5") # model 02 is best
+coef(summary(all.lme.02)) # values of fixed effects
+anova(all.lme.02) # anova on fixed effects
+VarCorr(all.lme.02) # variance of random effects
+# SD(intercept) = 8.37; SD(slope) = 0.18 [these values seem more believable]
+coef(all.lme.02) # coefficients for individual subjects
+ranef(all.lme.02) # lists values of random effects for individual subjects
+
+# evaluate statistical significance of random effects
+all.lm.02 <- gls(y ~ x * repetition, data = het3) # create a fixed-effects model with no random effects
+anova(all.lm.02, all.lme.02) # mixed-effects model is better
+
+qqnorm(residuals(all.lme.02, type = "p"), main = "all data (model 02)  N=5")
+qqline(residuals(all.lme.02, type = "p")) # slight positive skew
+boxplot(residuals(all.lme.02, type = "p"), main = "all data (model 02)  N=5", ylab = "residuals")
+# following plots suggest that variance is not constant across "standard"
+plot(all.lme.02, resid(., type = "p") ~ fitted(.) | Participant, abline = 0, main = "all data best-fit model")
+plot(all.lme.02, resid(., type = "p") ~ fitted(.), abline = 0, main = "all data best-fit model")
+# the residuals increase with increasing fitted-values
+
+## random intercept only models --------
+all.lme.01b <- update(all.lme.01, random = ~ 1 | Participant)
+all.lme.02b <- update(all.lme.02, random = ~ 1 | Participant)
+
+# comparing models... they have the same fixed effects so we don't have to re-fit using ML
+# comparisons of models shows random intercept+slope is better
+anova(all.lme.01b, all.lme.01) # 01 is better
+anova(all.lme.02b, all.lme.02) # 02 is better
+
+best.homogeneous.lme.mod <- all.lme.02 # save for later
+
+# heteroscedastic model --------
+# examination of residuals suggests that variance is not homogeneous
+# re-fit data using models that allow variance of residuals to change with fitted values
+
+all.lme.hetero.01 <- update(all.lme.01, weights = varPower(form = ~ fitted(.) | Participant))
+summary(all.lme.hetero.01)
+anova(all.lme.01, all.lme.hetero.01) # hetero model fits better
+
+## random intercept only model ------------
+all.lme.hetero.01b <- update(all.lme.hetero.01, random = ~ 1 | Participant) # intercept only
+anova(all.lme.hetero.01b, all.lme.hetero.01) # intercept+slope model is better
+
+plot(augPred(all.lme.hetero.01), main = "all data (full hetero model 01) N=5")
+coef(summary(all.lme.hetero.01)) # values of fixed effects
+anova(all.lme.hetero.01) # anova on fixed effects
+VarCorr(all.lme.hetero.01) # variance of random effects
+# SD(intercept) = 13.7; SD(slope) = 0.204
+coef(all.lme.hetero.01) # coefficients for individual subjects
+ranef(all.lme.hetero.01) # lists values of random effects for individual subjects
+
+# check residuals
+# N.B. Here we want to use the pearson/standardized residuals because
+# (unlike the raw residuals) they take into account the heteroscedasticity of the model
+# see Pinheiro & Bates (2000) page 218
+
+# these residuals look normal to me:
+qqnorm(residuals(all.lme.hetero.01, type = "p"), main = "all data (full hetero model 01) N=5")
+qqline(residuals(all.lme.hetero.01, type = "p"))
+boxplot(residuals(all.lme.hetero.01, type = "p"), main = "all data (full hetero model 01) N=5", ylab = "residuals")
+plot(all.lme.hetero.01, resid(., type = "p") ~ fitted(.) | Participant, abline = 0, main = "all data (full hetero model 01)")
+plot(all.lme.hetero.01, resid(., type = "p") ~ fitted(.), abline = 0, main = "all data (full hetero model 01)")
+
+# following qq plot of raw residuals are different from previous qq plot
+# qqnorm(residuals(all.lme.hetero.01),main="all data (full hetero model 01) N=5")
+# qqline(residuals(all.lme.hetero.01))
+
+
+
+# simplify model by removing non-significant effects:
+all.lme.hetero.02 <- update(all.lme.hetero.01, fixed = y ~ x + repetition)
+anova(update(all.lme.hetero.02, method = "ML"), update(all.lme.hetero.01, method = "ML")) # simpler model is preferred
+plot(augPred(all.lme.hetero.02), main = "all data (reduced hetero model 02) N=5")
+coef(summary(all.lme.hetero.02)) # values of fixed effects
+anova(all.lme.hetero.02) # anova on fixed effects
+VarCorr(all.lme.hetero.02) # variance of random effects
+# SD(intercept) = 21.8; SD(slope) = 0.214
+coef(all.lme.hetero.02) # coefficients for individual subjects
+ranef(all.lme.hetero.02) # lists values of random effects for individual subjects
+
+# check residuals... they look normal to me
+qqnorm(residuals(all.lme.hetero.02, type = "p"), main = "all data (reduced hetero model 02) N=5")
+qqline(residuals(all.lme.hetero.02, type = "p"))
+boxplot(residuals(all.lme.hetero.02, type = "p"), main = "all data (reduced hetero model 02) N=5", ylab = "residuals")
+plot(all.lme.hetero.02, resid(., type = "p") ~ fitted(.) | Participant, abline = 0, main = "all data (reduced hetero model 02)")
+plot(all.lme.hetero.02, resid(., type = "p") ~ fitted(.), abline = 0, main = "all data (reduced hetero model 02)")
+
+# evaluate random effects
+# create fixed-effects heteroscedatic model
+all.lm.hetero.02 <- gls(y ~ x + repetition, weights = varPower(form = ~ fitted(.) | Participant), data = het3)
+anova(all.lm.hetero.02, all.lme.hetero.02) # mixed-effects model is better
+
+best.hetero.lme.model <- all.lme.hetero.02
+# hetereo model fits best:
+anova(update(best.homogeneous.lme.mod, method = "ML"), update(best.hetero.lme.model, method = "ML"))
+
+# SUMMARY OF BEST MODEL ----------
+best_het3 <- all.lme.hetero.02
+anova(best_het3) # anova on fixed effects
+VarCorr(best_het3) # variance & SDs of random effects
+coef(summary(best_het3)) # values of fixed effects
+coef(best_het3) # coefficient values (fixed + random) for individual subjects
+ranef((best_het3)) # random effects for each subject
+qqnorm(residuals(best_het3))
+qqline(residuals(best_het3))
+hist(residuals(best_het3))
+plot(residuals(best_het3))
+
+# compare the coefficients estimated by the homogeneous and hetereoscedatic models:
+plot(compareFits(coef(best_het3), coef(all.lme.02)[, -4]))
+
+# Here I re-create the plots with examples of how to tweak the graphical parameters:
+# N.B. You may have to re-size RStudio's plot window to see all of the axis labels...
+
+# following command creates a list of legend parameters (e.g., line colors)
+# simpleKey(text=c("fixed","random"),points=F,lines=T)
+
+# following creates a figure with the average regression line an regression lines
+# for each subject. Delete "level=0:1" to remove fixed/average regression line
+
+lineColors <- trellis.par.get("superpose.line")$col # default colors
+
+plot(augPred(exp3_het_model, level = 0:1),
+     grid = T,
+     par.strip.text = list(cex = 1.5),
+     xlab = list(label = "standard (msec)", cex = 2),
+     ylab = list(label = "y (msec)", cex = 2),
+     pch = 1,
+     cex = 2,
+     key = list(
+          columns = 2, text = list(lab = c("fixed", "participant")),
+          lines = list(cex = 1, lwd = 2, lty = c(1, 3), col = lineColors[1:2])
+     ),
+     # key=listcolumns = 2,text=list(lab=c("fixed","participant"),col="black",cex=1.5),
+     #          lines=list(cex=1,col=c("black"),lwd=1.5,lty=c(1,2))),
+     # col=c("black"),
+     lwd = 3,
+     lty = c(1, 3),
+     scales = list(cex = 1.125),
+     main = "Heteroscedatic Model",
+     par.settings = list(par.main.text = list(cex = 2))
+)
+
+plot(best_het3,
+     resid(., type = "p") ~ fitted(.) | Participant,
+     par.strip.text = list(cex = 1.5),
+     abline = 0,
+     col = "black",
+     cex = 1.5,
+     scales = list(cex = 1.125),
+     ylab = list(label = "Standardized Residuals", cex = 2)
+)
+
+plot(best_het3,
+     resid(., type = "p") ~ fitted(.),
+     abline = 0,
+     col = "black",
+     cex = 1.5,
+     scales = list(cex = 1.5),
+     ylab = list(label = "Standardized Residuals", cex = 2),
+     xlab = list(label = "Fitted Values", cex = 2)
+)
+
+
+
+#  MODEL COMPARISONS
+
+# Full random effects
+exp3_het_full_random <- lme(
+      fixed = y ~ x * envelope_1 * repetition,
+      random = ~ 1 + x | Participant,
+      data = het3
+)
+# Random intercepts only
+exp3_het_int_only <- lme(
+      fixed = y ~ x * envelope_1 * repetition,
+      random = ~ 1 | Participant,
+      data = het3
+)
+# No random effects
+exp3_het_none <- gls(
+      y ~ x * envelope_1 * repetition,
+      data = het3
+)
+
+anova(exp3_het_full_random, exp3_het_int_only, exp3_het_none)
+
+# Now compare to model with allow variance of residuals to change with fitted values
+
+# Full random effects
+exp3_het_full_random_hetres <- lme(
+      fixed = y ~ x * envelope_1 * repetition,
+      random = ~ 1 + x | Participant,
+      data = het3,
+      weights=varPower(form = ~fitted(.))
+)
+# Random intercepts only
+exp3_het_int_only_hetres <- lme(
+      fixed = y ~ x * envelope_1 * repetition,
+      random = ~ 1 | Participant,
+      data = het3,
+      weights=varPower(form = ~fitted(.))
+)
+# No random effects
+exp3_het_none_hetres <- gls(
+      y ~ x * envelope_1 * repetition,
+      data = het3,
+      weights=varPower(form = ~fitted(.))
+)
+
+anova(exp3_het_full_random, exp3_het_int_only, exp3_het_none,
+exp3_het_full_random_hetres, exp3_het_int_only_hetres, exp3_het_none_hetres)
+
+
+exp3_het_env_only <- lme(
+      fixed = y ~ x * envelope_1,
+      random = ~ 1 + x | Participant,
+      data = het3,
+      weights=varPower(form = ~fitted(.))
+)
+exp3_het_rep_only <- lme(
+      fixed = y ~ x * repetition,
+      random = ~ 1 + x | Participant,
+      data = het3,
+      weights=varPower(form = ~fitted(.))
+)
+exp3_het_env_only_noint <- lme(
+      fixed = y ~ x + envelope_1,
+      random = ~ 1 + x | Participant,
+      data = het3,
+      weights=varPower(form = ~fitted(.))
+)
+exp3_het_rep_only_noint <- lme(
+      fixed = y ~ x + repetition,
+      random = ~ 1 + x | Participant,
+      data = het3,
+      weights=varPower(form = ~fitted(.))
+)
+exp3_het_x_only <- lme(
+      fixed = y ~ x,
+      random = ~ 1 + x | Participant,
+      data = het3,
+      weights=varPower(form = ~fitted(.))
+)
+
+anova(
+      update(exp3_het_none_hetres, method = "ML"),
+      update(exp3_het_env_only, method = "ML"),
+      update(exp3_het_rep_only, method = "ML"),
+      update(exp3_het_env_only_noint, method = "ML"),
+      update(exp3_het_rep_only_noint, method = "ML"),
+      update(exp3_het_x_only, method = "ML")
+      )

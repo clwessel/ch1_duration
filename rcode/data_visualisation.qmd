@@ -1,13 +1,14 @@
 ```{r}
 library(patchwork)
 library(ggpubr)
+library(randomcoloR)
 ```
 
 
 ```{r}
 library(rstudioapi)
-expid <- "13"
-source(paste0(dirname(getActiveDocumentContext()$path),"/data_preprocess.r"))
+expid <- "15"
+source(paste0(dirname(getActiveDocumentContext()$path), "/data_preprocess.r"))
 active_wd("plots", TRUE)
 ```
 
@@ -15,59 +16,75 @@ active_wd("plots", TRUE)
 
 ```{r}
 for (i in unique(data$Participant)) {
-  data |> 
-    filter(Participant == i) |> 
-    ggplot(aes(trial_num, second, color = direction, shape = envelope_1)) +
-    geom_path(alpha = 0.3) +
-    # geom_point(aes(color = l_reversal)) +
-    geom_point() +
-    theme_classic() +
-    geom_hline(aes(yintercept = first), 
-               linetype = 1, 
-               alpha = 0.3) +
-    geom_path(data = pse_new[pse_new$Participant == i,], 
-              mapping = aes(x = (max(data$trial_num) + 1), y = PSEtotal), 
-              color = "black",
-              arrow = arrow(angle = 20, 
-                            length = unit(0.06, "inches"), 
-                            ends = "first",
-                            type = "open")) +
-    geom_polygon(data = coords[coords$Participant == i,],
-                 mapping = aes(x = X, y = Y, group = envelope_1),
-                 fill = "brown",
-                 alpha = 0.3) +
-    geom_hline(data = pse[pse$Participant == i,], 
-               mapping = aes(yintercept = PSEtotal), 
-               color = "purple", 
-               alpha = 0.5,
-               linetype = 2) +
-    geom_text(data = pse[pse$Participant == i,], 
-              aes(label = paste("PSE (ratio) =", round(recip, 2))), 
-              x = max(data$trial_num) - 15, 
-              y = 2000,
-              hjust = "left",
-              inherit.aes = FALSE) +
-    geom_text(data = discrep[discrep$Participant == i,], 
-              aes(label = paste("Convergence discrepancy = ", discrepency, "ms", sep = "")), 
-              x = max(data$trial_num) - 15, 
-              y = 1800 ,
-              hjust = "left",
-              inherit.aes = FALSE) +
-    ggtitle("Trials across each staircase") +
-    xlab("Trials") +
-    ylab("Comparitor duration (ms)") +
-    ylim(c(0,2000)) +
-    facet_wrap(vars(start_id, type, envelope_1), 
-               nrow = 4, 
-               ncol = 2) +
-    scale_color_manual("Comparitor starting position",
-                       values = c("red", "blue")) +
-    scale_shape_manual("Comparitor envelope", 
-                       labels = c(flat = "Percussive", perc = "Flat"), 
-                       values = c(flat = "triangle", perc = "square"))
-  name = paste("staircase_p", i, ".pdf", sep = "")
-  ggsave(name, width = 20, height = 8)
-  cat(name, "\n")
+    data |>
+        filter(Participant == i) |>
+        ggplot(aes(trial_num, second, color = direction, shape = envelope_1)) +
+        geom_path(alpha = 0.3) +
+        # geom_point(aes(color = l_reversal)) +
+        geom_point() +
+        theme_classic() +
+        geom_hline(aes(yintercept = first),
+            linetype = 1,
+            alpha = 0.3
+        ) +
+        geom_path(
+            data = pse_new[pse_new$Participant == i, ],
+            mapping = aes(x = (max(data$trial_num) + 1), y = PSEtotal),
+            color = "black",
+            arrow = arrow(
+                angle = 20,
+                length = unit(0.06, "inches"),
+                ends = "first",
+                type = "open"
+            )
+        ) +
+        geom_polygon(
+            data = coords[coords$Participant == i, ],
+            mapping = aes(x = X, y = Y, group = envelope_1),
+            fill = "brown",
+            alpha = 0.3
+        ) +
+        geom_hline(
+            data = pse[pse$Participant == i, ],
+            mapping = aes(yintercept = PSEtotal),
+            color = "purple",
+            alpha = 0.5,
+            linetype = 2
+        ) +
+        geom_text(
+            data = pse[pse$Participant == i, ],
+            aes(label = paste("PSE (ratio) =", round(recip, 2))),
+            x = max(data$trial_num) - 15,
+            y = 2000,
+            hjust = "left",
+            inherit.aes = FALSE
+        ) +
+        geom_text(
+            data = discrep[discrep$Participant == i, ],
+            aes(label = paste("Convergence discrepancy = ", discrepency, "ms", sep = "")),
+            x = max(data$trial_num) - 15,
+            y = 1800,
+            hjust = "left",
+            inherit.aes = FALSE
+        ) +
+        ggtitle("Trials across each staircase") +
+        xlab("Trials") +
+        ylab("Comparitor duration (ms)") +
+        ylim(c(0, 2000)) +
+        facet_wrap(vars(start_id, type, envelope_1),
+            nrow = 4,
+            ncol = 2
+        ) +
+        scale_color_manual("Comparitor starting position",
+            values = c("red", "blue")
+        ) +
+        scale_shape_manual("Comparitor envelope",
+            labels = c(flat = "Percussive", perc = "Flat"),
+            values = c(flat = "triangle", perc = "square")
+        )
+    name <- paste("staircase_p", i, ".pdf", sep = "")
+    ggsave(name, width = 20, height = 8)
+    cat(name, "\n")
 }
 ```
 
@@ -75,48 +92,48 @@ for (i in unique(data$Participant)) {
 
 ## Homogenous boxplot
 ```{r}
-hombox <- pse[pse$type == "Homogenous",] |> 
-  ggplot(aes(factor(standard), recip, fill = envelope_1)) +
-  geom_boxplot(notch = T, outlier.alpha = 0) +
-  geom_hline(yintercept = median(pse$recip[pse$type == "Homogenous"]), linetype = 2, alpha = 0.7) +
-  theme_classic() +
-  ggtitle("A") +
-  # coord_cartesian(ylim = c(0.75, 1.25)) +
-  labs(x = "Standard duration (ms)", y = "Standard : Comparator ratio") +
-  scale_fill_manual("Standard Envelope", values = c("cornflowerblue", "grey"), labels = c("Flat", "Percussive"))
+hombox <- pse[pse$type == "Homogenous", ] |>
+    ggplot(aes(factor(standard), recip, fill = envelope_1)) +
+    geom_boxplot(notch = T, outlier.alpha = 0) +
+    geom_hline(yintercept = median(pse$recip[pse$type == "Homogenous"]), linetype = 1, alpha = 0.7) +
+    theme_classic() +
+    ggtitle("A") +
+    coord_cartesian(ylim = c(0.5, 2.5)) +
+    labs(x = "Standard duration (ms)", y = "Standard : Comparator ratio") +
+    scale_fill_manual("Standard Envelope", values = c("cornflowerblue", "grey"), labels = c("Flat", "Percussive"))
 hombox
 # ggsave("/Users/connorwessel/Downloads/combined manuscript data/boxplot_homo.pdf")
 ```
 
 ## Heterogenous boxplot
 ```{r}
-hetbox <- pse[pse$type == "Heterogenous",] |> 
-  ggplot(aes(factor(standard), recip, fill = envelope_1)) +
-  geom_boxplot(notch = T, outlier.alpha = 0) +
-  geom_hline(yintercept = median(pse$recip[pse$type == "Heterogenous"]), linetype = 2, alpha = 0.7) +
-  theme_classic() +
-  ggtitle("A") +
-  # coord_cartesian(ylim = c(0.75, 1.25)) +
-  labs(x = "Standard duration (ms)", y = "Flat : Percussive ratio") +
-  scale_fill_manual("Standard Envelope", values = c("cornflowerblue", "grey"), labels = c("Flat", "Percussive"))
+hetbox <- pse[pse$type == "Heterogenous", ] |>
+    ggplot(aes(factor(standard), recip, fill = envelope_1)) +
+    geom_boxplot(notch = T, outlier.alpha = 0) +
+    geom_hline(yintercept = median(pse$recip[pse$type == "Heterogenous"]), linetype = 1, alpha = 0.7) +
+    theme_classic() +
+    ggtitle("A") +
+    coord_cartesian(ylim = c(0.5, 2.5)) +
+    labs(x = "Standard duration (ms)", y = "Flat : Percussive ratio") +
+    scale_fill_manual("Standard Envelope", values = c("cornflowerblue", "grey"), labels = c("Flat", "Percussive"))
 hetbox
 # ggsave("/Users/connorwessel/Downloads/combined manuscript data/boxplot_hetero.pdf")
 ```
 
 ## Both boxplot
 ```{r}
-m <- pse |> 
-  group_by(type) |> 
-  summarise(m = mean(recip))
-pse |> 
-  ggplot(aes(factor(standard), recip, fill = envelope_1)) +
-  geom_boxplot(notch = T, outlier.alpha = 0) +
-  geom_hline(data = m, aes(yintercept = m), linetype = 2, alpha = 0.7) +
-  theme_classic() +
-  # coord_cartesian(ylim = c(0.75, 1.25)) +
-  labs(x = "Standard duration (ms)", y = "Flat : Percussive ratio") +
-  scale_fill_manual("Standard Envelope", values = c("cornflowerblue", "grey"), labels = c("Flat", "Percussive")) +
-  facet_wrap(~type, nrow = 2, ncol = 1)
+m <- pse |>
+    group_by(type) |>
+    summarise(m = mean(recip))
+pse |>
+    ggplot(aes(factor(standard), recip, fill = envelope_1)) +
+    geom_boxplot(notch = T, outlier.alpha = 0) +
+    geom_hline(data = m, aes(yintercept = m), linetype = 2, alpha = 0.7) +
+    theme_classic() +
+    # coord_cartesian(ylim = c(0.75, 1.25)) +
+    labs(x = "Standard duration (ms)", y = "Flat : Percussive ratio") +
+    scale_fill_manual("Standard Envelope", values = c("cornflowerblue", "grey"), labels = c("Flat", "Percussive")) +
+    facet_wrap(~type, nrow = 2, ncol = 1)
 # ggsave("boxplot.pdf")
 ```
 
@@ -124,75 +141,85 @@ pse |>
 
 ## Heterogenous faceted regression
 ```{r}
-envelopes |> 
-  ggplot(aes(x = Flat, y = Percussive)) +
-  geom_point(aes(shape = envelope_1)) +
-  geom_line(stat = "smooth", method = "lm", formula = y ~ poly(x,1), se = FALSE, alpha = 0.6) +
-  theme_classic() +
-  ylim(c(250, 2000)) +
-  xlim(c(250, 2000)) +
-  geom_vline(data = envelopes[envelopes$envelope_1 == "flat",], aes(xintercept = Flat), linetype = 2, alpha = 0.2) +
-  geom_hline(data = envelopes[envelopes$envelope_1 == "perc",], aes(yintercept = Percussive), linetype = 2, alpha = 0.2) +
-  stat_regline_equation(label.x = 850, label.y = 500, aes(label = ..eq.label..), size = 3) +
-  scale_shape_manual("Standard envelope", labels = c("Flat", "Percussive"), values = c("square", "triangle")) +
-  facet_wrap(~Participant)
+envelopes |>
+    ggplot(aes(x = Flat, y = Percussive)) +
+    geom_point(aes(shape = envelope_1)) +
+    geom_line(stat = "smooth", method = "lm", formula = y ~ poly(x, 1), se = FALSE, alpha = 0.6) +
+    theme_classic() +
+    ylim(c(250, 2000)) +
+    xlim(c(250, 2000)) +
+    geom_vline(data = envelopes[envelopes$envelope_1 == "flat", ], aes(xintercept = Flat), linetype = 2, alpha = 0.2) +
+    geom_hline(data = envelopes[envelopes$envelope_1 == "perc", ], aes(yintercept = Percussive), linetype = 2, alpha = 0.2) +
+    stat_regline_equation(label.x = 850, label.y = 500, aes(label = ..eq.label..), size = 3) +
+    scale_shape_manual("Standard envelope", labels = c("Flat", "Percussive"), values = c("square", "triangle")) +
+    facet_wrap(~Participant)
 # ggsave("heteroreg_facet.pdf", width = 15, height = 12)
 ```
 
 ## Homogenous faceted regression
 ```{r}
-hompse |> 
-  ggplot(aes(x = standard, y = PSEtotal)) +
-  geom_point(aes(shape = envelope_1)) +
-  geom_line(stat = "smooth", method = "lm", formula = y ~ poly(x,1), se = FALSE, alpha = 0.6) +
-  theme_classic() +
-  ylim(c(250, 2000)) +
-  xlim(c(250, 2000)) +
-  geom_vline(aes(xintercept = standard), linetype = 2, alpha = 0.2) +
-  stat_regline_equation(label.x = 850, label.y = 500, aes(label = ..eq.label..), size = 3) +
-  scale_shape_manual("Standard envelope", labels = c("Flat", "Percussive"), values = c("square", "triangle")) +
-  facet_wrap(~Participant)
+hompse |>
+    ggplot(aes(x = standard, y = PSEtotal)) +
+    geom_point(aes(shape = envelope_1)) +
+    geom_line(stat = "smooth", method = "lm", formula = y ~ poly(x, 1), se = FALSE, alpha = 0.6) +
+    theme_classic() +
+    ylim(c(250, 2000)) +
+    xlim(c(250, 2000)) +
+    geom_vline(aes(xintercept = standard), linetype = 2, alpha = 0.2) +
+    stat_regline_equation(label.x = 850, label.y = 500, aes(label = ..eq.label..), size = 3) +
+    scale_shape_manual("Standard envelope", labels = c("Flat", "Percussive"), values = c("square", "triangle")) +
+    facet_wrap(~Participant)
 # ggsave("homoreg_facet.pdf", width = 15, height = 12)
 ```
 
 ## Heterogenous aggregated regression
 ```{r}
-envelopes <- envelopes[envelopes$type == "Heterogenous",]
-hetreg <- envelopes |> 
-  ggplot(aes(x = Flat, y = Percussive)) +
-  geom_line(aes(color = factor(Participant)), stat = "smooth", method = "lm", alpha = 0.3) +
-  geom_smooth(method = "lm", formula = y ~ poly(x,1), se = TRUE, alpha = 1, color = "black") +
-  theme_classic() +
-  ggtitle("B") +
-  geom_vline(data = envelopes[envelopes$envelope_1 == "flat",], aes(xintercept = Flat), linetype = 2, alpha = 0.2) +
-  geom_hline(data = envelopes[envelopes$envelope_1 == "perc",], aes(yintercept = Percussive), linetype = 2, alpha = 0.2) +
-  stat_regline_equation(label.x = 900, label.y = 450, aes(label = ..eq.label..)) +
-  stat_regline_equation(label.x = 900, label.y = 300, aes(label = ..rr.label..)) +
-  labs(x = "Flat (ms)", y = "Percussive (ms)") +
-  scale_x_continuous(breaks = c(450, 750)) +
-  scale_y_continuous(breaks = c(750, 1250)) +
-  coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
-  theme(legend.position = "none")
+envelopes <- envelopes[envelopes$type == "Heterogenous", ]
+hetreg <- envelopes |>
+    ggplot(aes(x = Flat, y = Percussive)) +
+    geom_line(aes(color = factor(Participant)), stat = "smooth", method = "lm", alpha = 0.3) +
+    geom_smooth(method = "lm", formula = y ~ poly(x, 1), se = TRUE, alpha = 1, color = "black") +
+    theme_classic() +
+    ggtitle("B") +
+    geom_vline(data = envelopes[envelopes$envelope_1 == "flat", ], aes(xintercept = Flat), linetype = 2, alpha = 0.2) +
+    geom_hline(data = envelopes[envelopes$envelope_1 == "perc", ], aes(yintercept = Percussive), linetype = 2, alpha = 0.2) +
+    stat_regline_equation(label.x = 900, label.y = 450, aes(label = ..eq.label..)) +
+    stat_regline_equation(label.x = 900, label.y = 300, aes(label = ..rr.label..)) +
+    labs(x = "Flat (ms)", y = "Percussive (ms)") +
+    scale_x_continuous(breaks = c(450, 750, 1250)) +
+    scale_y_continuous(breaks = c(500, 750, 1000, 1250, 1500)) +
+    coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
+    theme(legend.position = "none")
 hetreg
-  
+
 # ggsave("/Users/connorwessel/Downloads/combined manuscript data/heteroreg_combined.pdf", height = 6, width = 6)
 ```
 
 ## Homogenous aggregated regression
 ```{r}
-homreg <- hompse |> 
-  ggplot(aes(x = standard, y = PSEtotal)) +
-  geom_line(aes(color = factor(Participant)), stat = "smooth", method = "lm", alpha = 0.3) +
-  geom_smooth(method = "lm", formula = y ~ poly(x,1), se = TRUE, alpha = 1, color = "black") +
-  theme_classic() +
-  ggtitle("B") +
-  coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
-  geom_vline(aes(xintercept = standard), linetype = 2, alpha = 0.2) +
-  stat_regline_equation(label.x = 800, label.y = 450, aes(label = ..eq.label..)) +
-  stat_regline_equation(label.x = 800, label.y = 300, aes(label = ..rr.label..)) +
-  labs(x = "Standard (ms)", y = "Comparator (ms)") +
-  scale_x_continuous(breaks = c(450, 750, 1250), limits = c(200, 1700)) +
-  theme(legend.position = "none")
+poly2 <- data.frame(
+    x = c(1000, 1300, 1300, 1000),
+    y = c(250, 250, 500, 500)
+)
+homreg <- hompse |>
+    ggplot(aes(x = standard, y = PSEtotal)) +
+    geom_line(aes(color = factor(Participant)), stat = "smooth", method = "lm", alpha = 0.3) +
+    geom_smooth(method = "lm", formula = y ~ poly(x, 1), se = TRUE, alpha = 1, color = "black") +
+    theme_classic() +
+    ggtitle("B") +
+    coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
+    geom_vline(aes(xintercept = standard), linetype = 2, alpha = 0.2) +
+    # geom_polygon(
+    #   data = poly2,
+    #   aes(x = x, y = y),
+    #   color = "white",
+    #   fill = "white") +
+    stat_regline_equation(label.x = 800, label.y = 450, aes(label = ..eq.label..)) +
+    stat_regline_equation(label.x = 800, label.y = 300, aes(label = ..rr.label..)) +
+    labs(x = "Standard (ms)", y = "Comparator (ms)") +
+    scale_x_continuous(breaks = c(450, 750, 1250)) +
+    scale_y_continuous(breaks = c(500, 750, 1000, 1250, 1500)) +
+    theme(legend.position = "none")
 homreg
 # ggsave("/Users/connorwessel/Downloads/combined manuscript data/homoreg_combined.pdf", height = 6, width = 6)
 ```
@@ -208,15 +235,168 @@ hetbox + hetreg
 ggsave("hetboth.pdf", height = 6, width = 12)
 ```
 
+# Bootstrapping
 
+## Experiment 1: Homogenous
+
+```{r}
+# Plot bootstraps of intercept and slope
+exp1_bootdf <- data.frame(
+    intercept = exp1_boot$t[, 1],
+    slope = exp1_boot$t[, 2]
+)
+
+homint1 <- exp1_bootdf |>
+    ggplot(aes(intercept)) +
+    geom_histogram(color = "black", fill = "cornflowerblue", bins = 15) +
+    geom_vline(xintercept = exp1_boot$t0[1], linetype = 2, color = "red", linewidth = 0.75, alpha = 0.75) +
+    geom_vline(xintercept = confint(exp1_boot)[1, ], linetype = 2, color = "orange", linewidth = 0.75, alpha = 0.75) +
+    scale_y_continuous(expand = c(0, 0)) +
+    coord_cartesian(xlim = c(-50, 250), ylim = c(0, 220)) +
+    labs(x = "Intercept", title = "A") +
+    theme(
+        axis.text.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
+homslo1 <- exp1_bootdf |>
+    ggplot(aes(slope)) +
+    geom_histogram(color = "black", fill = "cornflowerblue", bins = 15) +
+    geom_vline(xintercept = exp1_boot$t0[2], linetype = 2, color = "red", linewidth = 0.75, alpha = 0.75) +
+    geom_vline(xintercept = confint(exp1_boot)[2, ], linetype = 2, color = "orange", linewidth = 0.75, alpha = 0.75) +
+    scale_y_continuous(expand = c(0, 0)) +
+    coord_cartesian(xlim = c(0.8, 1.6), ylim = c(0, 220)) +
+    labs(x = "Slope", title = "B") +
+    theme(
+        axis.text.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
+(homint1 + homslo1) + plot_layout(guides = "collect")
+ggsave("exp1_boothist.pdf")
+```
+
+```{r}
+# Plot bootstraps as a regression
+ggplot(data.frame(), aes(0, 0)) +
+    coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
+    geom_abline(intercept = exp1_boot$t[, 1], slope = exp1_boot$t[, 2], alpha = 0.1, color = "grey50") +
+    geom_abline(intercept = exp1_boot$t0[1], slope = exp1_boot$t0[2], linewidth = 1) +
+    labs(x = "Standard (ms)", y = "Comparator (ms)") +
+    annotate(
+        "text",
+        x = 1000,
+        y = 500,
+        label = paste0(
+            "y = ",
+            round(exp1_boot$t0[1]),
+            " + ",
+            "x"
+        ),
+        hjust = "left",
+        size = 5
+    ) +
+    annotate(
+        "text",
+        x = 1000,
+        y = 400,
+        label = paste0(
+            "R^2 == ",
+            round(cor(fitted(exp1_model), exp1$y)^2, 2)
+        ),
+        parse = TRUE,
+        hjust = "left",
+        size = 5
+    )
+ggsave("exp1_bootreg.pdf")
+```
+
+## Experiment 2: Heterogenous
+
+```{r}
+# Plot bootstraps of intercept and slope
+exp2_bootdf <- data.frame(
+    intercept = exp2_boot$t[, 1],
+    slope = exp2_boot$t[, 2]
+)
+
+hetint2 <- exp2_bootdf |>
+    ggplot(aes(intercept)) +
+    geom_histogram(color = "black", fill = "cornflowerblue") +
+    geom_vline(xintercept = exp2_boot$t0[1], linetype = 2, color = "red", linewidth = 0.75, alpha = 0.75) +
+    geom_vline(xintercept = confint(exp2_boot)[1, ], linetype = 2, color = "orange", linewidth = 0.75, alpha = 0.75) +
+    scale_y_continuous(expand = c(0, 0)) +
+    coord_cartesian(xlim = c(-50, 250), ylim = c(0, 220)) +
+    labs(x = "Intercept", title = "A") +
+    theme(
+        axis.text.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
+hetslo2 <- exp2_bootdf |>
+    ggplot(aes(slope)) +
+    geom_histogram(color = "black", fill = "cornflowerblue") +
+    geom_vline(xintercept = exp2_boot$t0[2], linetype = 2, color = "red", linewidth = 0.75, alpha = 0.75) +
+    geom_vline(xintercept = confint(exp2_boot)[2, ], linetype = 2, color = "orange", linewidth = 0.75, alpha = 0.75) +
+    scale_y_continuous(expand = c(0, 0)) +
+    coord_cartesian(xlim = c(0.8, 1.6), ylim = c(0, 220)) +
+    labs(x = "Slope", title = "B") +
+    theme(
+        axis.text.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
+(hetint2 + hetslo2) + plot_layout(guides = "collect")
+ggsave("exp2_boothist.pdf")
+```
+
+```{r}
+# Plot bootstraps as a regression
+ggplot(data.frame(), aes(0, 0)) +
+    coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
+    geom_abline(intercept = exp2_boot$t[, 1], slope = exp2_boot$t[, 2], alpha = 0.1, color = "grey50") +
+    geom_abline(intercept = exp2_boot$t0[1], slope = exp2_boot$t0[2], linewidth = 1) +
+    labs(x = "Flat (ms)", y = "Percussive (ms)") +
+    annotate(
+        "text",
+        x = 1000,
+        y = 500,
+        label = paste0(
+            "y = ",
+            round(exp2_boot$t0[1]),
+            " + ",
+            round(exp2_boot$t0[2], 2),
+            "x"
+        ),
+        hjust = "left",
+        size = 5
+    ) +
+    annotate(
+        "text",
+        x = 1000,
+        y = 400,
+        label = paste0(
+            "R^2 == ",
+            round(r2_nakagawa(exp2_model)[[2]], 2)
+        ),
+        parse = TRUE,
+        hjust = "left",
+        size = 5
+    )
+ggsave("exp2_bootreg.pdf")
+```
 
 # Exp 3 (Summer) plots
 
 ## Regression per participant
 ```{r}
-hetpse <- pse[pse$type == "Heterogenous",]
-hompse <- pse[pse$type == "Homogenous",]
-envelopes2 <- rbind(envelopes[envelopes$type == "Heterogenous",], envelopes[envelopes$type == "Heterogenous",])
+hetpse <- pse[pse$type == "Heterogenous", ]
+hompse <- pse[pse$type == "Homogenous", ]
+envelopes2 <- rbind(envelopes[envelopes$type == "Heterogenous", ], envelopes[envelopes$type == "Heterogenous", ])
 envelopes2$Participant[101:200] <- "Overall"
 pse2 <- rbind(hompse, hompse)
 pse2$Participant <- as.character(pse2$Participant)
@@ -225,17 +405,17 @@ poly <- data.frame(x = c(800, 1700, 1700, 800), y = c(600, 600, 200, 200))
 pseall <- rbind(pse, pse)
 pseall$Participant <- as.character(pseall$Participant)
 pseall$Participant[201:400] <- "Overall"
-pseall <- pseall |> 
-  group_by(Participant, standard, envelope_1, type) |> 
-  summarise(m = max(PSEtotal))
+pseall <- pseall |>
+    group_by(Participant, standard, envelope_1, type) |>
+    summarise(m = max(PSEtotal))
 pseall <- pseall |> slice(rep(1:n(), each = 2))
 pseall$m[seq(0, (nrow(pseall) - 2), 2) + 1] <- 200
 pseall$m[pseall$type == "Homogenous" & pseall$envelope_1 == "perc" & pseall$m == 200] <- 1700
-pseall$m[pseall$type == "Homogenous" & pseall$envelope_1 == "perc" & pseall$m != 1700] <- pse2 |> 
-  filter(type == "Homogenous" & envelope_1 == "perc") |> 
-  group_by(Participant, standard) |> 
-  summarise(m = min(PSEtotal)) |> 
-  pull(m)
+pseall$m[pseall$type == "Homogenous" & pseall$envelope_1 == "perc" & pseall$m != 1700] <- pse2 |>
+    filter(type == "Homogenous" & envelope_1 == "perc") |>
+    group_by(Participant, standard) |>
+    summarise(m = min(PSEtotal)) |>
+    pull(m)
 pse2$envelope_1 <- factor(pse2$envelope_1)
 envelopes2$envelope_1 <- factor(envelopes2$envelope_1)
 pse2$group <- rep(pse2$Participant[1:(nrow(pse2) / 2)], 2)
@@ -243,83 +423,191 @@ envelopes2$group <- rep(envelopes2$Participant[1:(nrow(envelopes2) / 2)], 2)
 pseall$m[pseall$type == "Homogenous" & pseall$Participant == "Overall" & pseall$m == 1700] <- 200
 pseall$m[pseall$type == "Homogenous" & pseall$Participant == "Overall" & pseall$m != 200] <- 1700
 pseall$m[pseall$type == "Heterogenous" & pseall$Participant == "Overall" & pseall$m != 200] <- 1700
-hom <- pse2 |> 
-  ggplot(aes(x = standard, y = PSEtotal)) +
-  geom_point(data = pse2[pse2$Participant != "Overall",], aes(shape = envelope_1, color = envelope_1), alpha = 1, size = 2) +
-  geom_line(aes(group = group), stat = "smooth", method = "glm", formula = y ~ poly(x,1), se = FALSE, alpha = 0.8) +
-  theme_classic() +
-  ylim(c(200, 1700)) +
-  xlim(c(200, 1700)) +
-  ylab("Comparator (ms)") +
-  xlab("Standard (ms)") +
-  ggtitle("A - Homogenous") +
-  # theme(legend.position = "bottom") +
-  geom_line(data = pseall[pseall$type == "Homogenous",], 
-            aes(x = standard, y = m, group = factor(standard), color = envelope_1), 
-            linetype = 2, 
-            alpha = 0.8) +
-  # geom_polygon(data = poly, aes(x = x, y = y), fill = "white", color = "white") +
-  scale_shape_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c(15, 17)) +
-  scale_color_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c("cornflowerblue", "grey")) +
-  scale_x_continuous(breaks = c(400,600,800,1075,1400), limits = c(200, 1700)) +
-  stat_regline_equation(data = pse2[pse2$Participant != "Overall",],label.x = 900, label.y = 450, aes(label = ..eq.label..)) +
-  stat_regline_equation(data = pse2[pse2$Participant != "Overall",],label.x = 900, label.y = 300, aes(label = ..rr.label..)) +
-  facet_wrap(vars(factor(Participant)), ncol = 3, nrow = 2)
+hom <- pse2 |>
+    ggplot(aes(x = standard, y = PSEtotal)) +
+    geom_point(data = pse2[pse2$Participant != "Overall", ], aes(shape = envelope_1, color = envelope_1), alpha = 1, size = 2) +
+    geom_line(aes(group = group), stat = "smooth", method = "glm", formula = y ~ poly(x, 1), se = FALSE, alpha = 0.8) +
+    theme_classic() +
+    ylim(c(200, 1700)) +
+    xlim(c(200, 1700)) +
+    ylab("Comparator (ms)") +
+    xlab("Standard (ms)") +
+    ggtitle("A - Homogenous") +
+    # theme(legend.position = "bottom") +
+    geom_line(
+        data = pseall[pseall$type == "Homogenous", ],
+        aes(x = standard, y = m, group = factor(standard), color = envelope_1),
+        linetype = 2,
+        alpha = 0.8
+    ) +
+    # geom_polygon(data = poly, aes(x = x, y = y), fill = "white", color = "white") +
+    scale_shape_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c(15, 17)) +
+    scale_color_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c("cornflowerblue", "grey")) +
+    scale_x_continuous(breaks = c(400, 600, 800, 1075, 1400), limits = c(200, 1700)) +
+    stat_regline_equation(data = pse2[pse2$Participant != "Overall", ], label.x = 900, label.y = 450, aes(label = ..eq.label..)) +
+    stat_regline_equation(data = pse2[pse2$Participant != "Overall", ], label.x = 900, label.y = 300, aes(label = ..rr.label..)) +
+    facet_wrap(vars(factor(Participant)), ncol = 3, nrow = 2)
 het <- envelopes2 |>
-  ggplot(aes(x = Flat, y = Percussive)) +
-  geom_line(data = pseall[pseall$type == "Heterogenous" & pseall$envelope_1 == "flat",], 
-            aes(x = standard, y = m, group = factor(standard), color = envelope_1), 
-            linetype = 2, 
-            alpha = 0.8) +
-  geom_line(data = pseall[pseall$type == "Heterogenous" & pseall$envelope_1 == "perc",], 
-            aes(x = m, y = standard, group = factor(standard), color = envelope_1), 
-            linetype = 2, 
-            alpha = 0.8) +
-  geom_point(data = envelopes2[envelopes2$Participant != "Overall",], aes(color = envelope_1, shape = envelope_1), alpha = 1) +
-  geom_line(aes(group = group), stat = "smooth", method = "glm", formula = y ~ poly(x,1), se = FALSE, alpha = 0.8) +
-  theme_classic() +
-  ylim(c(200, 1700)) +
-  xlim(c(200, 1700)) +
-  ylab("Percussive (ms)") +
-  xlab("Flat (ms)") +
-  ggtitle("B - Heterogenous") +
-  scale_shape_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c(0, 2)) +
-  scale_color_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c("cornflowerblue", "grey")) +
-  scale_x_continuous(breaks = c(400,600,800), limits = c(200, 1700)) +
-  scale_y_continuous(breaks = c(750,925,1075,1250,1400), limits = c(200, 1700)) +
-  theme(legend.position = "none") +
-  stat_regline_equation(data = envelopes2[envelopes2$Participant != "Overall",], label.x = 900, label.y = 450, aes(label = ..eq.label..)) +
-  stat_regline_equation(data = envelopes2[envelopes2$Participant != "Overall",], label.x = 900, label.y = 300, aes(label = ..rr.label..)) +
-  facet_wrap(vars(factor(Participant)), ncol = 3, nrow = 2)
+    ggplot(aes(x = Flat, y = Percussive)) +
+    geom_line(
+        data = pseall[pseall$type == "Heterogenous" & pseall$envelope_1 == "flat", ],
+        aes(x = standard, y = m, group = factor(standard), color = envelope_1),
+        linetype = 2,
+        alpha = 0.8
+    ) +
+    geom_line(
+        data = pseall[pseall$type == "Heterogenous" & pseall$envelope_1 == "perc", ],
+        aes(x = m, y = standard, group = factor(standard), color = envelope_1),
+        linetype = 2,
+        alpha = 0.8
+    ) +
+    geom_point(data = envelopes2[envelopes2$Participant != "Overall", ], aes(color = envelope_1, shape = envelope_1), alpha = 1) +
+    geom_line(aes(group = group), stat = "smooth", method = "glm", formula = y ~ poly(x, 1), se = FALSE, alpha = 0.8) +
+    theme_classic() +
+    ylim(c(200, 1700)) +
+    xlim(c(200, 1700)) +
+    ylab("Percussive (ms)") +
+    xlab("Flat (ms)") +
+    ggtitle("B - Heterogenous") +
+    scale_shape_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c(0, 2)) +
+    scale_color_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c("cornflowerblue", "grey")) +
+    scale_x_continuous(breaks = c(400, 600, 800), limits = c(200, 1700)) +
+    scale_y_continuous(breaks = c(750, 925, 1075, 1250, 1400), limits = c(200, 1700)) +
+    theme(legend.position = "none") +
+    stat_regline_equation(data = envelopes2[envelopes2$Participant != "Overall", ], label.x = 900, label.y = 450, aes(label = ..eq.label..)) +
+    stat_regline_equation(data = envelopes2[envelopes2$Participant != "Overall", ], label.x = 900, label.y = 300, aes(label = ..rr.label..)) +
+    facet_wrap(vars(factor(Participant)), ncol = 3, nrow = 2)
 (hom / het) + plot_layout(guides = "collect")
 ggsave("exp3_reg.pdf", height = 16, width = 12)
+```
+
+```{r}
+hetpse <- pse[pse$type == "Heterogenous", ]
+hompse <- pse[pse$type == "Homogenous", ]
+envelopes2 <- rbind(envelopes[envelopes$type == "Heterogenous", ], envelopes[envelopes$type == "Heterogenous", ])
+envelopes2$Participant[101:200] <- "Overall"
+pse2 <- rbind(hompse, hompse)
+pse2$Participant <- as.character(pse2$Participant)
+pse2$Participant[101:200] <- "Overall"
+poly <- data.frame(x = c(900, 1700, 1700, 900), y = c(600, 600, 200, 200))
+pseall <- rbind(pse, pse)
+pseall$Participant <- as.character(pseall$Participant)
+pseall$Participant[201:400] <- "Overall"
+pseall <- pseall |>
+    group_by(Participant, standard, envelope_1, type) |>
+    summarise(m = max(PSEtotal))
+pseall <- pseall |> slice(rep(1:n(), each = 2))
+pseall$m[seq(0, (nrow(pseall) - 2), 2) + 1] <- 200
+pseall$m[pseall$type == "Homogenous" & pseall$envelope_1 == "perc" & pseall$m == 200] <- 1700
+pseall$m[pseall$type == "Homogenous" & pseall$envelope_1 == "perc" & pseall$m != 1700] <- pse2 |>
+    filter(type == "Homogenous" & envelope_1 == "perc") |>
+    group_by(Participant, standard) |>
+    summarise(m = min(PSEtotal)) |>
+    pull(m)
+pse2$envelope_1 <- factor(pse2$envelope_1)
+envelopes2$envelope_1 <- factor(envelopes2$envelope_1)
+pse2$group <- rep(pse2$Participant[1:(nrow(pse2) / 2)], 2)
+envelopes2$group <- rep(envelopes2$Participant[1:(nrow(envelopes2) / 2)], 2)
+pseall$m[pseall$type == "Homogenous" & pseall$Participant == "Overall" & pseall$m == 1700] <- 200
+pseall$m[pseall$type == "Homogenous" & pseall$Participant == "Overall" & pseall$m != 200] <- 1700
+pseall$m[pseall$type == "Heterogenous" & pseall$Participant == "Overall" & pseall$m != 200] <- 1700
+hom <- pse2 |>
+    ggplot(aes(x = standard, y = PSEtotal)) +
+    geom_point(data = pse2[pse2$Participant != "Overall", ], aes(shape = envelope_1, color = envelope_1), alpha = 1, size = 2) +
+    geom_line(aes(group = group), stat = "smooth", method = "glm", formula = y ~ poly(x, 1), se = FALSE, alpha = 0.8) +
+    geom_line(
+        data = pse2[pse2$Participant == "Overall", ],
+        stat = "smooth",
+        method = "lm",
+        color = "red"
+    ) +
+    theme_classic() +
+    ylim(c(200, 1700)) +
+    xlim(c(200, 1700)) +
+    ylab("Comparator (ms)") +
+    xlab("Standard (ms)") +
+    # ggtitle("A - Homogenous") +
+    # theme(legend.position = "bottom") +
+    geom_line(
+        data = pseall[pseall$type == "Homogenous", ],
+        aes(x = standard, y = m, group = factor(standard), color = envelope_1),
+        linetype = 2,
+        alpha = 0.8
+    ) +
+    geom_polygon(data = poly, aes(x = x, y = y), fill = "white", color = "white") +
+    scale_shape_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c(15, 17)) +
+    scale_color_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c("cornflowerblue", "grey")) +
+    scale_x_continuous(breaks = c(400, 600, 800, 1075, 1400), limits = c(200, 1700)) +
+    stat_regline_equation(data = pse2, label.x = 900, label.y = 450, aes(label = ..eq.label..)) +
+    stat_regline_equation(data = pse2, label.x = 900, label.y = 300, aes(label = ..rr.label..)) +
+    facet_wrap(vars(factor(Participant)), ncol = 3, nrow = 2)
+het <- envelopes2 |>
+    ggplot(aes(x = Flat, y = Percussive)) +
+    geom_line(
+        data = pseall[pseall$type == "Heterogenous" & pseall$envelope_1 == "flat", ],
+        aes(x = standard, y = m, group = factor(standard), color = envelope_1),
+        linetype = 2,
+        alpha = 0.8
+    ) +
+    geom_line(
+        data = pseall[pseall$type == "Heterogenous" & pseall$envelope_1 == "perc", ],
+        aes(x = m, y = standard, group = factor(standard), color = envelope_1),
+        linetype = 2,
+        alpha = 0.8
+    ) +
+    geom_point(data = envelopes2[envelopes2$Participant != "Overall", ], aes(color = envelope_1, shape = envelope_1), alpha = 1) +
+    geom_line(aes(group = group), stat = "smooth", method = "glm", formula = y ~ poly(x, 1), se = FALSE, alpha = 0.8) +
+    geom_line(
+        data = envelopes2[envelopes2$Participant == "Overall", ],
+        stat = "smooth",
+        method = "lm",
+        color = "red"
+    ) +
+    theme_classic() +
+    ylim(c(200, 1700)) +
+    xlim(c(200, 1700)) +
+    ylab("Percussive (ms)") +
+    xlab("Flat (ms)") +
+    # ggtitle("B - Heterogenous") +
+    scale_shape_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c(0, 2)) +
+    scale_color_manual("Standard Envelope", labels = c("Flat", "Percussive"), values = c("cornflowerblue", "grey")) +
+    scale_x_continuous(breaks = c(400, 600, 800), limits = c(200, 1700)) +
+    scale_y_continuous(breaks = c(750, 925, 1075, 1250, 1400), limits = c(200, 1700)) +
+    # theme(legend.position = "none") +
+    stat_regline_equation(label.x = 900, label.y = 450, aes(label = ..eq.label..)) +
+    stat_regline_equation(label.x = 900, label.y = 300, aes(label = ..rr.label..)) +
+    facet_wrap(vars(factor(Participant)), ncol = 3, nrow = 2)
+# (hom / het) + plot_layout(guides = "collect")
+ggsave("exp3_het_olsreg.pdf", height = 6, width = 9)
 ```
 
 ## Boxplot per participant
 ```{r}
 #| echo: false
-hetpse <- pse[pse$type == "Heterogenous",]
-hompse <- pse[pse$type == "Homogenous",]
-het <- hetpse |> 
-  ggplot(aes(x = factor(Participant), y = recip)) +
-  geom_boxplot(notch = T, outlier.alpha = 0, fill = "darkgrey") +
-  geom_hline(yintercept = median(hetpse$recip), linetype = 2) +
-  theme_classic() +
-  xlab("Participant") +
-  ylab("Ratio") +
-  coord_cartesian(ylim = c(1,2.1)) +
-  facet_wrap(~type)
-hom <- hompse |> 
-  ggplot(aes(x = factor(Participant), y = recip, fill = envelope_1)) +
-  geom_boxplot(notch = T, outlier.alpha = 0, fill = "darkgrey") +
-  geom_hline(yintercept = median(hompse$recip), linetype = 2) +
-  theme_classic() +
-  xlab("Participant") +
-  ylab("Ratio") +
-  coord_cartesian(ylim = c(0.8,1.2)) +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank()) +
-  facet_wrap(~type)
+hetpse <- pse[pse$type == "Heterogenous", ]
+hompse <- pse[pse$type == "Homogenous", ]
+het <- hetpse |>
+    ggplot(aes(x = factor(Participant), y = recip)) +
+    geom_boxplot(notch = T, outlier.alpha = 0, fill = "darkgrey") +
+    geom_hline(yintercept = median(hetpse$recip), linetype = 2) +
+    theme_classic() +
+    xlab("Participant") +
+    ylab("Ratio") +
+    coord_cartesian(ylim = c(1, 2.1)) +
+    facet_wrap(~type)
+hom <- hompse |>
+    ggplot(aes(x = factor(Participant), y = recip, fill = envelope_1)) +
+    geom_boxplot(notch = T, outlier.alpha = 0, fill = "darkgrey") +
+    geom_hline(yintercept = median(hompse$recip), linetype = 2) +
+    theme_classic() +
+    xlab("Participant") +
+    ylab("Ratio") +
+    coord_cartesian(ylim = c(0.8, 1.2)) +
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()
+    ) +
+    facet_wrap(~type)
 (hom / het) + plot_layout(guides = "collect", axis_titles = "collect")
 # ggsave("participant_ratio.pdf", height = 5.2, width = 7)
 ```
@@ -327,60 +615,282 @@ hom <- hompse |>
 ## Staircase plot
 ```{r}
 for (i in unique(data$Participant)) {
-  for(j in unique(data$start_id)) {
-    data |> 
-      filter(Participant == i, start_id == j) |> 
-      ggplot(aes(trial_num, second, color = direction, shape = envelope_1)) +
-      geom_path(alpha = 0.3) +
-      # geom_point(aes(color = l_reversal)) +
-      geom_point() +
-      theme_classic() +
-      geom_hline(aes(yintercept = first), 
-                 linetype = 1, 
-                 alpha = 0.3) +
-      geom_path(data = pse_new[pse_new$Participant == i & pse_new$start_id == j,], 
-                mapping = aes(x = (max(data$trial_num) + 1), y = PSEtotal), 
+    for (j in unique(data$start_id)) {
+        data |>
+            filter(Participant == i, start_id == j) |>
+            ggplot(aes(trial_num, second, color = direction, shape = envelope_1)) +
+            geom_path(alpha = 0.3) +
+            # geom_point(aes(color = l_reversal)) +
+            geom_point() +
+            theme_classic() +
+            geom_hline(aes(yintercept = first),
+                linetype = 1,
+                alpha = 0.3
+            ) +
+            geom_path(
+                data = pse_new[pse_new$Participant == i & pse_new$start_id == j, ],
+                mapping = aes(x = (max(data$trial_num) + 1), y = PSEtotal),
                 color = "black",
-                arrow = arrow(angle = 20, 
-                              length = unit(0.06, "inches"), 
-                              ends = "first",
-                              type = "open")) +
-      geom_polygon(data = coords[coords$Participant == i & coords$start_id == j,],
-                   mapping = aes(x = X, y = Y, group = envelope_1),
-                   fill = "brown",
-                   alpha = 0.3) +
-      geom_hline(data = pse[pse$Participant == i & pse$start_id == j,], 
-                 mapping = aes(yintercept = PSEtotal), 
-                 color = "purple", 
-                 alpha = 0.5,
-                 linetype = 2) +
-      geom_text(data = pse[pse$Participant == i & pse$start_id == j,], 
-                aes(label = paste("PSE (ratio) =", round(recip, 2))), 
-                x = max(data$trial_num) - 40, 
+                arrow = arrow(
+                    angle = 20,
+                    length = unit(0.06, "inches"),
+                    ends = "first",
+                    type = "open"
+                )
+            ) +
+            geom_polygon(
+                data = coords[coords$Participant == i & coords$start_id == j, ],
+                mapping = aes(x = X, y = Y, group = envelope_1),
+                fill = "brown",
+                alpha = 0.3
+            ) +
+            geom_hline(
+                data = pse[pse$Participant == i & pse$start_id == j, ],
+                mapping = aes(yintercept = PSEtotal),
+                color = "purple",
+                alpha = 0.5,
+                linetype = 2
+            ) +
+            geom_text(
+                data = pse[pse$Participant == i & pse$start_id == j, ],
+                aes(label = paste("PSE (ratio) =", round(recip, 2))),
+                x = max(data$trial_num) - 40,
                 y = 2000,
                 hjust = "left",
-                inherit.aes = FALSE) +
-      geom_text(data = discrep[discrep$Participant == i & discrep$start_id == j,], 
-                aes(label = paste("Convergence discrepancy = ", discrepancy, "ms", sep = "")), 
-                x = max(data$trial_num) - 40, 
-                y = 1800 ,
+                inherit.aes = FALSE
+            ) +
+            geom_text(
+                data = discrep[discrep$Participant == i & discrep$start_id == j, ],
+                aes(label = paste("Convergence discrepancy = ", discrepancy, "ms", sep = "")),
+                x = max(data$trial_num) - 40,
+                y = 1800,
                 hjust = "left",
-                inherit.aes = FALSE) +
-      ggtitle("Trials across each staircase") +
-      xlab("Trials") +
-      ylab("Comparitor duration (ms)") +
-      ylim(c(0,2000)) +
-      facet_wrap(vars(repetition, type, envelope_1), 
-                 nrow = 4, 
-                 ncol = 2) +
-      scale_color_manual("Comparitor starting position",
-                         values = c("red", "blue")) +
-      scale_shape_manual("Comparitor envelope", 
-                         labels = c(flat = "Percussive", perc = "Flat"), 
-                         values = c(flat = "triangle", perc = "square"))
-    name = paste("staircase_p", i, "_", j, ".pdf", sep = "")
-    ggsave(name, width = 20, height = 8)
-    cat(name, "\n")
-  }
+                inherit.aes = FALSE
+            ) +
+            ggtitle("Trials across each staircase") +
+            xlab("Trials") +
+            ylab("Comparitor duration (ms)") +
+            ylim(c(0, 2000)) +
+            facet_wrap(vars(repetition, type, envelope_1),
+                nrow = 4,
+                ncol = 2
+            ) +
+            scale_color_manual("Comparitor starting position",
+                values = c("red", "blue")
+            ) +
+            scale_shape_manual("Comparitor envelope",
+                labels = c(flat = "Percussive", perc = "Flat"),
+                values = c(flat = "triangle", perc = "square")
+            )
+        name <- paste("staircase_p", i, "_", j, ".pdf", sep = "")
+        ggsave(name, width = 20, height = 8)
+        cat(name, "\n")
+    }
 }
+```
+
+## Bootstrap plots
+
+### Homogenous
+
+```{r}
+# Plot bootstraps of intercept and slope
+exp3_hom_bootdf <- data.frame(
+    intercept = exp3_hom_boot$t[, 1],
+    slope = exp3_hom_boot$t[, 2]
+)
+
+homint3 <- exp3_hom_bootdf |>
+    ggplot(aes(intercept)) +
+    geom_histogram(color = "black", fill = "cornflowerblue", bins = 15) +
+    geom_vline(xintercept = exp3_hom_boot$t0[1], linetype = 2, color = "red", linewidth = 0.75, alpha = 0.75) +
+    geom_vline(xintercept = confint(exp3_hom_boot)[1, ], linetype = 2, color = "orange", linewidth = 0.75, alpha = 0.75) +
+    scale_y_continuous(expand = c(0, 0)) +
+    coord_cartesian(xlim = c(-50, 250), ylim = c(0, 220)) +
+    labs(x = "Intercept", title = "A") +
+    theme(
+        axis.text.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
+homslo3 <- exp3_hom_bootdf |>
+    ggplot(aes(slope)) +
+    geom_histogram(color = "black", fill = "cornflowerblue", bins = 15) +
+    geom_vline(xintercept = exp3_hom_boot$t0[2], linetype = 2, color = "red", linewidth = 0.75, alpha = 0.75) +
+    geom_vline(xintercept = confint(exp3_hom_boot)[2, ], linetype = 2, color = "orange", linewidth = 0.75, alpha = 0.75) +
+    scale_y_continuous(expand = c(0, 0)) +
+    coord_cartesian(xlim = c(0.8, 1.6), ylim = c(0, 220)) +
+    labs(x = "Slope", title = "B") +
+    theme(
+        axis.text.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
+(homint3 + homslo3) + plot_layout(guides = "collect")
+ggsave("exp3_hom_boothist.pdf")
+```
+
+```{r}
+# Plot bootstraps as a regression
+ggplot(data.frame(), aes(0, 0)) +
+    coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
+    geom_abline(intercept = exp3_hom_boot$t[, 1], slope = exp3_hom_boot$t[, 2], alpha = 0.1, color = "grey50") +
+    geom_abline(intercept = exp3_hom_boot$t0[1], slope = exp3_hom_boot$t0[2], linewidth = 1) +
+    labs(x = "Standard (ms)", y = "Comparator (ms)") +
+    annotate(
+        "text",
+        x = 1000,
+        y = 500,
+        label = paste0(
+            "y = ",
+            round(exp3_hom_boot$t0[1]),
+            " + ",
+            round(exp3_hom_boot$t0[2], 2),
+            "x"
+        ),
+        hjust = "left",
+        size = 5
+    ) +
+    annotate(
+        "text",
+        x = 1000,
+        y = 400,
+        label = paste0(
+            "R^2 == ",
+            round(cor(fitted(exp3_hom_model), exp3_hom$y)^2, 2)
+        ),
+        parse = TRUE,
+        hjust = "left",
+        size = 5
+    )
+ggsave("exp3_hom_bootreg.pdf")
+```
+
+### Heterogenous
+
+```{r}
+# Plot bootstraps of intercept and slope
+exp3_het_bootdf <- data.frame(
+    intercept = exp3_het_boot$t[, 1],
+    slope = exp3_het_boot$t[, 2],
+    repetition = exp3_het_boot$t[, 3]
+)
+
+hetint3 <- exp3_het_bootdf |>
+    ggplot(aes(intercept)) +
+    geom_histogram(color = "black", fill = "cornflowerblue") +
+    geom_vline(xintercept = exp3_het_boot$t0[1], linetype = 2, color = "red", linewidth = 0.75, alpha = 0.75) +
+    geom_vline(xintercept = confint(exp3_het_boot)[1, ], linetype = 2, color = "orange", linewidth = 0.75, alpha = 0.75) +
+    scale_y_continuous(expand = c(0, 0)) +
+    coord_cartesian(xlim = c(-50, 250), ylim = c(0, 220)) +
+    labs(x = "Intercept", title = "A") +
+    theme(
+        axis.text.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
+hetslo3 <- exp3_het_bootdf |>
+    ggplot(aes(slope)) +
+    geom_histogram(color = "black", fill = "cornflowerblue") +
+    geom_vline(xintercept = exp3_het_boot$t0[2], linetype = 2, color = "red", linewidth = 0.75, alpha = 0.75) +
+    geom_vline(xintercept = confint(exp3_het_boot)[2, ], linetype = 2, color = "orange", linewidth = 0.75, alpha = 0.75) +
+    scale_y_continuous(expand = c(0, 0)) +
+    coord_cartesian(xlim = c(0.8, 1.6), ylim = c(0, 220)) +
+    labs(x = "Slope", title = "B") +
+    theme(
+        axis.text.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
+(hetint3 + hetslo3) + plot_layout(guides = "collect")
+ggsave("exp3_het_boothist.pdf")
+
+exp3_het_bootdf |>
+    ggplot(aes(repetition)) +
+    geom_histogram(color = "black", fill = "cornflowerblue") +
+    geom_vline(xintercept = exp3_het_boot$t0[3], linetype = 2, color = "red", linewidth = 0.75, alpha = 0.75) +
+    geom_vline(xintercept = confint(exp3_het_boot)[3, ], linetype = 2, color = "orange", linewidth = 0.75, alpha = 0.75) +
+    scale_y_continuous(expand = c(0, 0)) +
+    coord_cartesian(ylim = c(0, 220)) +
+    labs(x = "Repetition") +
+    theme(
+        axis.text.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
+ggsave("exp3_het_repetition.pdf", height = 6, width = 6)
+```
+
+
+```{r}
+# Plot random effects against fixed effects
+exp3_preds <- augPred(exp3_het_model, level = 0:1)
+exp3_preds <- exp3_preds[exp3_preds$.type != "original", ]
+exp3_random <- coef(exp3_het_model)
+exp3_random$.groups <- rownames(exp3_random)
+exp3_preds |>
+    ggplot(aes(x, y)) +
+    coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
+    labs(x = "Flat (ms)", y = "Percussive (ms)") +
+    geom_line(
+      aes(x, y, color = .type)
+    ) +
+    geom_text(
+        data = exp3_random,
+        aes(
+            x = 900,
+            y = 500,
+            label = paste0(
+                "y = ",
+                round((`(Intercept)`)),
+                " + ",
+                round(x, 2),
+                "x"
+            )
+        ),
+        hjust = "left",
+        size = 4
+    ) +
+    scale_color_manual("Effect", labels = c("Fixed", "Random"), values = c("black", "orange")) +
+    facet_wrap(~.groups)
+ggsave("exp3_het_fixedrandom.pdf", height = 5.5, width = 9)
+
+# Plot bootstraps as a regression
+ggplot(data.frame(), aes(0, 0)) +
+    coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
+    geom_abline(intercept = exp3_het_boot$t[, 1], slope = exp3_het_boot$t[, 2], alpha = 0.1, color = "grey50") +
+    geom_abline(intercept = exp3_het_boot$t0[1], slope = exp3_het_boot$t0[2], linewidth = 1) +
+    labs(x = "Flat (ms)", y = "Percussive (ms)") +
+    annotate(
+        "text",
+        x = 1000,
+        y = 500,
+        label = paste0(
+            "y = ",
+            round(exp3_het_boot$t0[1]),
+            " + ",
+            round(exp3_het_boot$t0[2], 2),
+            "x"
+        ),
+        hjust = "left",
+        size = 5
+    ) +
+    annotate(
+        "text",
+        x = 1000,
+        y = 400,
+        label = paste0(
+            "R^2 == ",
+            round(r2_nakagawa(exp3_het_model)[[2]], 2)
+        ),
+        parse = TRUE,
+        hjust = "left",
+        size = 5
+    )
+ggsave("exp3_het_bootreg.pdf")
 ```

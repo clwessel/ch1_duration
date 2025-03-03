@@ -6,7 +6,7 @@ library(Hmisc)
 expid <- paste(expid)
 # Load data
 active_wd <- function(x, verbose = FALSE) {
-  mkdir <- dirname(getActiveDocumentContext()$path)
+  mkdir <- dirname(rstudioapi::getActiveDocumentContext()$path)
   mkdir <- sub("[^/]*$", "", mkdir)
   mkdir <- paste0(mkdir, x)
   setwd(mkdir)
