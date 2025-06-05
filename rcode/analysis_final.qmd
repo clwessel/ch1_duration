@@ -24,115 +24,122 @@ active_wd <- function(x, output = FALSE) {
 }
 active_wd("data")
 
+# Quantile based confidence interval
+ci <- function(x) {
+    l <- quantile(x, 0.025, na.rm = T)
+    u <- quantile(x, 0.975, na.rm = T)
+    return(c(l, u))
+}
+
 # Read in data
 data <- read_csv("full_data.csv")
-data12 <- data[data$exp %in% c("1", "2"),]
-data3 <- data[data$exp %in% c("3a", "3b"),]
+data12 <- data[data$exp %in% c("1", "2"), ]
+data3 <- data[data$exp %in% c("3a", "3b"), ]
 
 # Data processing - turn into PSEs
 
 psefunc <- function(df, reversals = 4) {
-# Select final 4 reversals in each staircase for each Participant
-last_revs <- data.frame()
-for (i in unique(df$Participant)) {
-  for (j in unique(df$start_id)) {
-    for (k in unique(df$type)) {
-      for (l in unique(df$envelope_1)) {
-        for (m in unique(df$repetition)) {
-          for (n in unique(df$direction)) {
-            rev = subset(df, Participant == i & type == k & envelope_1 == l & repetition == m & direction == n & l_reversal == 1)
-            if (!j %in% rev$start_id) next
-            rev = subset(rev, start_id == j)
-            num = length(rev$l_reversal) - reversals
-            rev = rev[-c(1:num),]
-            last_revs <- rbind(last_revs, rev)
-          }
+    # Select final 4 reversals in each staircase for each Participant
+    last_revs <- data.frame()
+    for (i in unique(df$Participant)) {
+        for (j in unique(df$start_id)) {
+            for (k in unique(df$type)) {
+                for (l in unique(df$envelope_1)) {
+                    for (m in unique(df$repetition)) {
+                        for (n in unique(df$direction)) {
+                            rev <- subset(df, Participant == i & type == k & envelope_1 == l & repetition == m & direction == n & l_reversal == 1)
+                            if (!j %in% rev$start_id) next
+                            rev <- subset(rev, start_id == j)
+                            num <- length(rev$l_reversal) - reversals
+                            rev <- rev[-c(1:num), ]
+                            last_revs <- rbind(last_revs, rev)
+                        }
+                    }
+                }
+            }
         }
-      }
     }
-  }
-}
 
-# Categorise each reversal
-k = 1
-for (i in 1:nrow(last_revs)) {
-  if (k > reversals) k = 1
-  last_revs$trial_num[i] <- k
-  k = k + 1
-}
+    # Categorise each reversal
+    k <- 1
+    for (i in 1:nrow(last_revs)) {
+        if (k > reversals) k <- 1
+        last_revs$trial_num[i] <- k
+        k <- k + 1
+    }
 
-# Group and condense response/reversal data
-revs <- last_revs |> 
-  group_by(Participant, start_id, direction, envelope_1, type, repetition, trial_num, exp) |> 
-  summarise("Level" = mean(second - first)) |> 
-  mutate("trial_num" = as.integer(trial_num), "start_id" = factor(start_id)) |> 
-  arrange(Participant, start_id, direction, envelope_1, type, repetition, trial_num)
+    # Group and condense response/reversal data
+    revs <- last_revs |>
+        group_by(Participant, start_id, direction, envelope_1, type, repetition, trial_num, exp) |>
+        summarise("Level" = mean(second - first)) |>
+        mutate("trial_num" = as.integer(trial_num), "start_id" = factor(start_id)) |>
+        arrange(Participant, start_id, direction, envelope_1, type, repetition, trial_num)
 
-# Calculate PSE for each standard and envelope for each participant
-pse <- revs |> 
-  group_by(Participant, start_id, envelope_1, type, repetition, exp) |> 
-  summarise("PSE" = mean(Level))
+    # Calculate PSE for each standard and envelope for each participant
+    pse <- revs |>
+        group_by(Participant, start_id, envelope_1, type, repetition, exp) |>
+        summarise("PSE" = mean(Level))
 
-# Get standard value and overall comparator value
-pse$PSEtotal <- 0
-pse$standard <- 0
-for (i in 1:length(unique(pse$envelope_1))) {
-  for (j in 1:length(unique(pse$start_id))) {
-    e <- unique(pse$envelope_1)[i]
-    if (!j %in% unique(pse$start_id[pse$envelope_1 == e])) next
-    pse$PSEtotal[pse$envelope_1 == unique(pse$envelope_1)[i] & pse$start_id == j] <- df$first[df$envelope_1 == unique(pse$envelope_1)[i] & df$start_id == j] + pse$PSE[pse$envelope_1 == unique(pse$envelope_1)[i] & pse$start_id == j]
-    pse$standard[pse$envelope_1 == unique(pse$envelope_1)[i] & pse$start_id == j] <- df$first[df$envelope_1 == unique(pse$envelope_1)[i] & df$start_id == j]
-  }
-}
+    # Get standard value and overall comparator value
+    pse$PSEtotal <- 0
+    pse$standard <- 0
+    for (i in 1:length(unique(pse$envelope_1))) {
+        for (j in 1:length(unique(pse$start_id))) {
+            e <- unique(pse$envelope_1)[i]
+            if (!j %in% unique(pse$start_id[pse$envelope_1 == e])) next
+            pse$PSEtotal[pse$envelope_1 == unique(pse$envelope_1)[i] & pse$start_id == j] <- df$first[df$envelope_1 == unique(pse$envelope_1)[i] & df$start_id == j] + pse$PSE[pse$envelope_1 == unique(pse$envelope_1)[i] & pse$start_id == j]
+            pse$standard[pse$envelope_1 == unique(pse$envelope_1)[i] & pse$start_id == j] <- df$first[df$envelope_1 == unique(pse$envelope_1)[i] & df$start_id == j]
+        }
+    }
 
-# Initialise x and y columns for models
-pse$x <- 0
-pse$y <- 0
+    # Initialise x and y columns for models
+    pse$x <- 0
+    pse$y <- 0
 
-# For homogenous condition, x is always the standard and y is always the comparator
-pse$x[pse$type == "Homogenous"] <- pse$standard[pse$type == "Homogenous"]
-pse$y[pse$type == "Homogenous"] <- pse$PSEtotal[pse$type == "Homogenous"]
+    # For homogenous condition, x is always the standard and y is always the comparator
+    pse$x[pse$type == "Homogenous"] <- pse$standard[pse$type == "Homogenous"]
+    pse$y[pse$type == "Homogenous"] <- pse$PSEtotal[pse$type == "Homogenous"]
 
-# For heterogenous condition, x is always the flat tone and y is always the percussive tone
-pse$x[pse$type == "Heterogenous"] <- with(
-    pse[pse$type == "Heterogenous",],
-    ifelse(
-        envelope_1 == "flat",
-        standard,
-        PSEtotal
+    # For heterogenous condition, x is always the flat tone and y is always the percussive tone
+    pse$x[pse$type == "Heterogenous"] <- with(
+        pse[pse$type == "Heterogenous", ],
+        ifelse(
+            envelope_1 == "flat",
+            standard,
+            PSEtotal
+        )
     )
-)
-pse$y[pse$type == "Heterogenous"] <- with(
-    pse[pse$type == "Heterogenous",],
-    ifelse(
-        envelope_1 == "flat",
-        PSEtotal,
-        standard
+    pse$y[pse$type == "Heterogenous"] <- with(
+        pse[pse$type == "Heterogenous", ],
+        ifelse(
+            envelope_1 == "flat",
+            PSEtotal,
+            standard
+        )
     )
-)
 
-# Cleaning and final processes
-pse$repetition <- as.factor(pse$repetition)
-pse$envelope_1 <- as.factor(pse$envelope_1)
-pse$Participant <- factor(pse$Participant, label = "p")
+    # Cleaning and final processes
+    pse$repetition <- as.factor(pse$repetition)
+    pse$envelope_1 <- as.factor(pse$envelope_1)
+    pse$Participant <- factor(pse$Participant, label = "p")
 
-return(pse)
+    return(pse)
 }
 
 pse12 <- psefunc(data12)
 pse3 <- psefunc(data3)
 # Split by experiment
-exp1 <- data.frame(pse12[pse12$exp == "1",])
+exp1 <- data.frame(pse12[pse12$exp == "1", ])
 exp1 <- groupedData(formula = y ~ x | Participant, data = exp1)
-exp2 <- data.frame(pse12[pse12$exp == "2",])
+exp2 <- data.frame(pse12[pse12$exp == "2", ])
 exp2 <- groupedData(formula = y ~ x | Participant, data = exp2)
-exp3_hom <- data.frame(pse3[pse3$exp == "3a",])
+exp3_hom <- data.frame(pse3[pse3$exp == "3a", ])
 exp3_hom <- groupedData(formula = y ~ x | Participant, data = exp3_hom)
-exp3_het <- data.frame(pse3[pse3$exp == "3b",])
+exp3_het <- data.frame(pse3[pse3$exp == "3b", ])
 exp3_het <- groupedData(formula = y ~ x | Participant, data = exp3_het)
 avtest <- rbind(exp3_het, exp2)
 avtest$dataset <- c(rep("A", 100), rep("B", 220))
-avtest <- groupedData(formula = y ~ x | dataset/Participant, data = avtest)
+avtest <- groupedData(formula = y ~ x | dataset / Participant, data = avtest)
 
 
 # Setup for figures 4 and 6
@@ -222,19 +229,19 @@ exp18 <- gls( # This is the best model
     weights = varPower(form = ~ fitted(.))
 )
 
-anova(exp11,exp12,exp13,exp14,exp15,exp16,exp17,exp18)
+anova(exp11, exp12, exp13, exp14, exp15, exp16, exp17, exp18)
 
 # Experiment 1 - selecting fixed effects
 
 exp1a <- exp18
 
-exp1b <- gls( 
+exp1b <- gls(
     y ~ x + envelope_1,
     data = exp1,
     weights = varPower(form = ~ fitted(.))
 )
 
-exp1c <- gls( 
+exp1c <- gls(
     y ~ x + x:envelope_1,
     data = exp1,
     weights = varPower(form = ~ fitted(.))
@@ -327,7 +334,7 @@ exp28 <- gls(
     weights = varPower(form = ~ fitted(.))
 )
 
-anova(exp21,exp22,exp23,exp24,exp25,exp26,exp27,exp28)
+anova(exp21, exp22, exp23, exp24, exp25, exp26, exp27, exp28)
 
 # Experiment 2 - selecting fixed effects
 
@@ -432,35 +439,52 @@ exp3_hom8 <- gls( # This is the best model
     weights = varPower(form = ~ fitted(.))
 )
 
-anova(exp3_hom1,exp3_hom2,exp3_hom3,exp3_hom4,exp3_hom5,exp3_hom6,exp3_hom7,exp3_hom8)
+anova(exp3_hom1, exp3_hom2, exp3_hom3, exp3_hom4, exp3_hom5, exp3_hom6, exp3_hom7, exp3_hom8)
 
 # Experiment 3a - selecting fixed effects
 
-exp3_homa <- exp3_hom2
+exp3_homa <- exp3_hom8
 
 exp3_homb <- gls(
     y ~ x * envelope_1,
-    data = exp3_hom
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
 )
 
 exp3_homc <- gls(
     y ~ x * repetition,
-    data = exp3_hom
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
 )
 
 exp3_homd <- gls(
     y ~ x + envelope_1,
-    data = exp3_hom
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
 )
 
 exp3_home <- gls(
     y ~ x + repetition,
-    data = exp3_hom
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
 )
 
-exp3_homf <- gls( # This is the best model
+exp3_homf <- gls(
+    y ~ x + x:envelope_1,
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_homg <- gls(
+    y ~ x + x:repetition,
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_homh <- gls( # This is the best model
     y ~ x,
-    data = exp3_hom
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
 )
 
 anova(
@@ -469,19 +493,23 @@ anova(
     update(exp3_homc, method = "ML"),
     update(exp3_homd, method = "ML"),
     update(exp3_home, method = "ML"),
-    update(exp3_homf, method = "ML")
+    update(exp3_homf, method = "ML"),
+    update(exp3_homg, method = "ML"),
+    update(exp3_homh, method = "ML")
 )
 
 # Experiment 3a - Intercept and/or slope
 
 exp3_homi <- gls(
     y ~ 1 + x,
-    data = exp3_hom
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
 )
 
 exp3_homii <- gls( # This is the best model
     y ~ 0 + x,
-    data = exp3_hom
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
 )
 
 anova(
@@ -544,7 +572,7 @@ exp3_het8 <- gls(
     weights = varPower(form = ~ fitted(.))
 )
 
-anova(exp3_het1,exp3_het2,exp3_het3,exp3_het4,exp3_het5,exp3_het6,exp3_het7,exp3_het8)
+anova(exp3_het1, exp3_het2, exp3_het3, exp3_het4, exp3_het5, exp3_het6, exp3_het7, exp3_het8)
 
 # Experiment 3b - selecting fixed effects
 
@@ -571,7 +599,7 @@ exp3_hetd <- lme(
     weights = varPower(form = ~ fitted(.))
 )
 
-exp3_hete <- lme( # This is the best model
+exp3_hete <- lme(
     fixed = y ~ x + repetition,
     random = ~ 0 + x | Participant,
     data = exp3_het,
@@ -579,6 +607,20 @@ exp3_hete <- lme( # This is the best model
 )
 
 exp3_hetf <- lme(
+    fixed = y ~ x + x:envelope_1,
+    random = ~ 0 + x | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_hetg <- lme( # This is the best model
+    fixed = y ~ x + x:repetition,
+    random = ~ 0 + x | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_heth <- lme(
     fixed = y ~ x,
     random = ~ 0 + x | Participant,
     data = exp3_het,
@@ -591,7 +633,9 @@ anova(
     update(exp3_hetc, method = "ML"),
     update(exp3_hetd, method = "ML"),
     update(exp3_hete, method = "ML"),
-    update(exp3_hetf, method = "ML")
+    update(exp3_hetf, method = "ML"),
+    update(exp3_hetg, method = "ML"),
+    update(exp3_heth, method = "ML")
 )
 ```
 
@@ -600,21 +644,21 @@ anova(
 # Aggregated model - Random effects & varPower
 avtest1 <- lme(
     fixed = y ~ x * envelope_1,
-    random = ~ 1 + x | dataset/Participant,
+    random = ~ 1 + x | dataset / Participant,
     data = avtest,
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
 )
 
 avtest2 <- lme(
     fixed = y ~ x * envelope_1,
-    random = ~ 0 + x | dataset/Participant,
+    random = ~ 0 + x | dataset / Participant,
     data = avtest,
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
 )
 
 avtest3 <- lme(
     fixed = y ~ x * envelope_1,
-    random = ~ 1 | dataset/Participant,
+    random = ~ 1 | dataset / Participant,
     data = avtest,
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
 )
@@ -627,7 +671,7 @@ avtest4 <- gls(
 
 avtest5 <- lme(
     fixed = y ~ x * envelope_1,
-    random = ~ 1 + x | dataset/Participant,
+    random = ~ 1 + x | dataset / Participant,
     data = avtest,
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE),
     weights = varPower(form = ~ fitted(.) | dataset)
@@ -635,7 +679,7 @@ avtest5 <- lme(
 
 avtest6 <- lme( # This is the best model
     fixed = y ~ x * envelope_1,
-    random = ~ 0 + x | dataset/Participant,
+    random = ~ 0 + x | dataset / Participant,
     data = avtest,
     weights = varPower(form = ~ fitted(.) | dataset),
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
@@ -643,7 +687,7 @@ avtest6 <- lme( # This is the best model
 
 avtest7 <- lme(
     fixed = y ~ x * envelope_1,
-    random = ~ 1 | dataset/Participant,
+    random = ~ 1 | dataset / Participant,
     data = avtest,
     weights = varPower(form = ~ fitted(.) | dataset),
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
@@ -656,7 +700,7 @@ avtest8 <- gls(
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
 )
 
-anova(avtest1,avtest2,avtest3,avtest4,avtest5,avtest6,avtest7,avtest8)
+anova(avtest1, avtest2, avtest3, avtest4, avtest5, avtest6, avtest7, avtest8)
 
 # Aggregated model - selecting fixed effects
 
@@ -664,7 +708,7 @@ avtesta <- avtest6
 
 avtestb <- lme(
     fixed = y ~ x + envelope_1,
-    random = ~ 0 + x | dataset/Participant,
+    random = ~ 0 + x | dataset / Participant,
     data = avtest,
     weights = varPower(form = ~ fitted(.) | dataset),
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
@@ -672,7 +716,7 @@ avtestb <- lme(
 
 avtestc <- lme(
     fixed = y ~ x + x:envelope_1,
-    random = ~ 0 + x | dataset/Participant,
+    random = ~ 0 + x | dataset / Participant,
     data = avtest,
     weights = varPower(form = ~ fitted(.) | dataset),
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
@@ -680,7 +724,7 @@ avtestc <- lme(
 
 avtestd <- lme( # This is the best model
     fixed = y ~ x,
-    random = ~ 0 + x | dataset/Participant,
+    random = ~ 0 + x | dataset / Participant,
     data = avtest,
     weights = varPower(form = ~ fitted(.) | dataset),
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
@@ -697,7 +741,7 @@ anova(
 
 avtesti <- lme( # This is the best model
     fixed = y ~ 1 + x,
-    random = ~ 0 + x | dataset/Participant,
+    random = ~ 0 + x | dataset / Participant,
     data = avtest,
     weights = varPower(form = ~ fitted(.) | dataset),
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
@@ -705,7 +749,7 @@ avtesti <- lme( # This is the best model
 
 avtestii <- lme(
     fixed = y ~ 0 + x,
-    random = ~ 0 + x | dataset/Participant,
+    random = ~ 0 + x | dataset / Participant,
     data = avtest,
     weights = varPower(form = ~ fitted(.) | dataset),
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
@@ -731,6 +775,7 @@ exp1$residuals <- residuals(exp1_model, type = "p")
 qqnorm(exp1$residuals)
 qqline(exp1$residuals)
 exp1_boot <- boot_gls(exp1_model, cores = 8, R = 1000)
+ci(exp1_boot$t[, 1])
 ```
 
 ```{r}
@@ -745,25 +790,29 @@ exp2$residuals <- residuals(exp2_model, type = "p")
 qqnorm(exp2$residuals)
 qqline(exp2$residuals)
 exp2_boot <- boot_lme(exp2_model, cores = 8, R = 1000)
+ci(exp2_boot$t[, 1])
+ci(exp2_boot$t[, 2])
 ```
 
 ```{r}
 # Experiment 3a
 exp3_hom_model <- gls(
     y ~ 0 + x,
-    data = exp3_hom
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
 )
 summary(exp3_hom_model)
 exp3_hom$residuals <- residuals(exp3_hom_model, type = "p")
 qqnorm(exp3_hom$residuals)
 qqline(exp3_hom$residuals)
 exp3_hom_boot <- boot_gls(exp3_hom_model, cores = 8, R = 1000)
+ci(exp3_hom_boot$t[, 1])
 ```
 
 ```{r}
 # Experiment 3b
 exp3_het_model <- lme(
-    fixed = y ~ x + repetition,
+    fixed = y ~ x + x:repetition,
     random = ~ 0 + x | Participant,
     data = exp3_het,
     weights = varPower(form = ~ fitted(.))
@@ -773,13 +822,16 @@ exp3_het$residuals <- residuals(exp3_het_model, type = "p")
 qqnorm(exp3_het$residuals)
 qqline(exp3_het$residuals)
 exp3_het_boot <- boot_lme(exp3_het_model, cores = 8, R = 1000)
+ci(exp3_het_boot$t[, 1])
+ci(exp3_het_boot$t[, 2])
+ci(exp3_het_boot$t[, 3])
 ```
 
 ```{r}
 # Aggregate model from Experiments 2 and 3b
 avtest_model <- lme(
     fixed = y ~ 1 + x,
-    random = ~ 0 + x | dataset/Participant,
+    random = ~ 0 + x | dataset / Participant,
     data = avtest,
     weights = varPower(form = ~ fitted(.) | dataset),
     control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
@@ -789,6 +841,8 @@ avtest$residuals <- residuals(avtest_model, type = "p")
 qqnorm(avtest$residuals)
 qqline(avtest$residuals)
 avtest_boot <- boot_lme(avtest_model, cores = 8, R = 1000)
+ci(avtest_boot$t[, 1])
+ci(avtest_boot$t[, 2])
 ```
 
 # Figures
@@ -834,9 +888,9 @@ exp1reg + exp2reg
 
 ```{r}
 # Function to make bootstrap plot
-bootstrap_plot <- function(bootdf, model, hist_ylim = c(0, 220), bins = 45, intlim = c(-50, 250), slopelim = c(0.8, 1.6), reglim = c(200, 1700), testlim = list(c(200,1700), c(200,1700)), homlab = "Homogenous", hetlab = "Heterogenous") {
+bootstrap_plot <- function(bootdf, model, hist_ylim = c(0, 220), bins = 45, intlim = c(-50, 250), slopelim = c(0.8, 1.6), reglim = c(200, 1700), testlim = list(c(200, 1700), c(200, 1700)), homlab = "Homogenous", hetlab = "Heterogenous") {
     require(ggplot2)
-    require(performance)
+    require(MuMIn)
     require(patchwork)
     colors <- c("#66b6b8", "#994947")
     histlist <- c()
@@ -857,21 +911,38 @@ bootstrap_plot <- function(bootdf, model, hist_ylim = c(0, 220), bins = 45, intl
         u = 0,
         f = 0
     )
+    # ci_df$l[ci_df$l == 0] <- NA
+    # ci_df$u[ci_df$u == 0] <- NA
     for (i in 1:nrow(ci_df)) {
         ci_df$l[i] <- ci(bootdf[with(bootdf, type) == ci_df$type[i], ci_df$loop[i]])[1]
         ci_df$u[i] <- ci(bootdf[with(bootdf, type) == ci_df$type[i], ci_df$loop[i]])[2]
     }
     ci_df$f <- c(
-        model[[1]]$coefficients[1],
+        0,
         coefficients(summary(model[[2]]))[1, 1],
-        model[[1]]$coefficients[2],
+        model[[1]]$coefficients[1],
         coefficients(summary(model[[2]]))[2, 1]
     )
     for (i in 1:2) {
+        histd <- data.frame("." = bootdf[, i], "type" = factor(bootdf[, 3], levels = c("Homogenous", "Heterogenous")))
+        histna <- histd
+        histna[histna == 0] <- NA
         histlist[[i]] <- data.frame("." = bootdf[, i], "type" = factor(bootdf[, 3], levels = c("Homogenous", "Heterogenous"))) |>
             ggplot(aes(.)) +
             geom_histogram(
-                aes(fill = type),
+                data = histna[histna$type == "Homogenous", ],
+                fill = "#66b6b8",
+                # aes(fill = type),
+                color = "black",
+                linewidth = 0.1,
+                position = position_identity(),
+                alpha = 0.95,
+                bins = bins
+            ) +
+            geom_histogram(
+                data = histna[histna$type == "Heterogenous", ],
+                fill = "#994947",
+                # aes(fill = type),
                 color = "black",
                 linewidth = 0.1,
                 position = position_identity(),
@@ -911,7 +982,7 @@ bootstrap_plot <- function(bootdf, model, hist_ylim = c(0, 220), bins = 45, intl
     for (i in 1:2) {
         r2list[i] <- ifelse(
             class(model[[i]]) == "lme",
-            r.squaredGLMM(model[[i]])[[2]],
+            r.squaredGLMM(model[[i]])[[1]],
             cor(model[[i]]$fitted, (model[[i]]$fitted + model[[i]]$residuals))^2
         )
     }
@@ -926,8 +997,8 @@ bootstrap_plot <- function(bootdf, model, hist_ylim = c(0, 220), bins = 45, intl
             labs(x = regxlab[i], y = regylab[i], title = paste0(LETTERS[i + 2])) +
             geom_polygon(
                 data = data.frame(
-                    x = c(0,0,testlim[[i]][1],testlim[[i]][1]),
-                    y = c(0,2000,2000,0)
+                    x = c(0, 0, testlim[[i]][1], testlim[[i]][1]),
+                    y = c(0, 2000, 2000, 0)
                 ),
                 aes(
                     x = x,
@@ -939,8 +1010,8 @@ bootstrap_plot <- function(bootdf, model, hist_ylim = c(0, 220), bins = 45, intl
             ) +
             geom_polygon(
                 data = data.frame(
-                    x = c(testlim[[i]][2],testlim[[i]][2],2000,2000),
-                    y = c(0,2000,2000,0)
+                    x = c(testlim[[i]][2], testlim[[i]][2], 2000, 2000),
+                    y = c(0, 2000, 2000, 0)
                 ),
                 aes(
                     x = x,
@@ -950,20 +1021,40 @@ bootstrap_plot <- function(bootdf, model, hist_ylim = c(0, 220), bins = 45, intl
                 fill = "white",
                 alpha = 0.8
             ) +
-            annotate(
-                "text",
-                x = 1000,
-                y = 500,
-                label = paste0(
-                    "y = ",
-                    round(ci_df_i$f[1]),
-                    " + ",
-                    round(ci_df_i$f[2], 2),
-                    "x"
-                ),
-                hjust = "left",
-                size = 4
-            ) +
+            {
+                if (types[i] == "Homogenous") {
+                    annotate(
+                        "text",
+                        x = 1000,
+                        y = 500,
+                        label = paste0(
+                            "y = ",
+                            round(ci_df_i$f[2], 2),
+                            "x"
+                        ),
+                        hjust = "left",
+                        size = 4
+                    )
+                }
+            } +
+            {
+                if (types[i] == "Heterogenous") {
+                    annotate(
+                        "text",
+                        x = 1000,
+                        y = 500,
+                        label = paste0(
+                            "y = ",
+                            round(ci_df_i$f[1]),
+                            " + ",
+                            round(ci_df_i$f[2], 2),
+                            "x"
+                        ),
+                        hjust = "left",
+                        size = 4
+                    )
+                }
+            } +
             annotate(
                 "text",
                 x = 1000,
@@ -985,12 +1076,12 @@ bootstrap_plot <- function(bootdf, model, hist_ylim = c(0, 220), bins = 45, intl
 ```{r}
 # Figure 3 (Experiment 1 and 2 bootstraps)
 exp12_boot <- data.frame(
-    intercept = c(exp1_boot$t[, 1], exp2_boot$t[, 1]),
-    slope = c(exp1_boot$t[, 2], exp2_boot$t[, 2]),
+    intercept = c(rep(0, length(exp2_boot$t[, 1])), exp2_boot$t[, 1]),
+    slope = c(exp1_boot$t[, 1], exp2_boot$t[, 2]),
     type = rep(c("Homogenous", "Heterogenous"), each = 1000)
 )
 exp12_models <- list(exp1_model, exp2_model)
-bootstrap_plot(exp12_boot, exp12_models, hist_ylim = c(0, 425),  testlim = list(c(400,1400), c(400,1215.6)), homlab = "Homogenous (Experiment 1)", hetlab = "Heterogenous (Experiment 2)", bins = 50)
+bootstrap_plot(exp12_boot, exp12_models, hist_ylim = c(0, 800), testlim = list(c(400, 1400), c(400, 1215.6)), homlab = "Homogenous (Experiment 1)", hetlab = "Heterogenous (Experiment 2)", bins = 50)
 # ggsave("exp12_boots.pdf", height = 8, width = 9.5)
 ```
 
@@ -1029,13 +1120,13 @@ pse2 |>
 ```{r}
 # Figure 5 (Experiment 3 bootstraps)
 exp3_boot <- data.frame(
-    intercept = c(exp3_hom_boot$t[, 1], exp3_het_boot$t[, 1]),
-    slope = c(exp3_hom_boot$t[, 2], exp3_het_boot$t[, 2]),
+    intercept = c(rep(0, length(exp3_hom_boot$t[, 1])), exp3_het_boot$t[, 1]),
+    slope = c(exp3_hom_boot$t[, 1], exp3_het_boot$t[, 2]),
     type = rep(c("Homogenous", "Heterogenous"), each = 1000)
 )
 exp3_models <- list(exp3_hom_model, exp3_het_model)
-bootstrap_plot(exp3_boot, exp3_models, hist_ylim = c(0, 425),  testlim = list(c(400,1400), c(400,1215.6)), homlab = "Homogenous (Experiment 3a)", hetlab = "Heterogenous (Experiment 3b)", bins = 50)
-# ggsave("exp3_boots.pdf", height = 8, width = 9.5)
+bootstrap_plot(exp3_boot, exp3_models, hist_ylim = c(0, 800), testlim = list(c(400, 1400), c(400, 1215.6)), homlab = "Homogenous (Experiment 3a)", hetlab = "Heterogenous (Experiment 3b)", bins = 50)
+ggsave("exp3_boots.pdf", height = 8, width = 9.5)
 ```
 
 ```{r}
@@ -1085,117 +1176,117 @@ ylims <- c(0, 350)
 xlims <- list(c(-50, 250), c(0.8, 1.6))
 labs <- c("Intercept", "Slope")
 ci <- function(x) {
-        l <- quantile(x, 0.025, na.rm = T)
-        u <- quantile(x, 0.975, na.rm = T)
-        return(c(l, u))
-    }
+    l <- quantile(x, 0.025, na.rm = T)
+    u <- quantile(x, 0.975, na.rm = T)
+    return(c(l, u))
+}
 CIs <- data.frame(
-    lower = c(ci(avtest_boots[,1])[1], ci(avtest_boots[,2])[1]),
-    upper = c(ci(avtest_boots[,1])[2], ci(avtest_boots[,2])[2]),
+    lower = c(ci(avtest_boots[, 1])[1], ci(avtest_boots[, 2])[1]),
+    upper = c(ci(avtest_boots[, 1])[2], ci(avtest_boots[, 2])[2]),
     mode = c(avtest_boot$t0[1], avtest_boot$t0[2])
 )
 histlist <- c()
 for (i in 1:2) {
-        histlist[[i]] <- data.frame("." = avtest_boots[, i]) |>
-            ggplot(aes(.)) +
-            coord_cartesian(xlim = xlims[[i]], ylim = ylims) + 
-            geom_histogram(
-                color = "black",
-                fill = "cornflowerblue",
-                linewidth = 0.1,
-                position = position_identity(),
-                alpha = 0.95,
-                bins = 45
-            ) +
-            geom_errorbar(
-                data = CIs[i,],
-                aes(
-                    y = ylims[2] * 0.9,
-                    xmin = lower,
-                    xmax = upper
-                ),
-                color = "cornflowerblue",
-                inherit.aes = F,
-                width = 25
-            ) +
-            geom_point(
-                data = CIs[i,],
-                aes(x = mode, y = ylims[2] * 0.9),
-                color = "cornflowerblue",
-                pch = 21,
-                fill = "white",
-                inherit.aes = F
-            ) +
-            scale_y_continuous(expand = c(0, 0)) +
-            labs(x = labs[i], title = LETTERS[i]) +
-            theme(
-                axis.text.y = element_blank(),
-                axis.title.y = element_blank(),
-                axis.ticks.y = element_blank()
-            )
-    }
+    histlist[[i]] <- data.frame("." = avtest_boots[, i]) |>
+        ggplot(aes(.)) +
+        coord_cartesian(xlim = xlims[[i]], ylim = ylims) +
+        geom_histogram(
+            color = "black",
+            fill = "cornflowerblue",
+            linewidth = 0.1,
+            position = position_identity(),
+            alpha = 0.95,
+            bins = 45
+        ) +
+        geom_errorbar(
+            data = CIs[i, ],
+            aes(
+                y = ylims[2] * 0.9,
+                xmin = lower,
+                xmax = upper
+            ),
+            color = "cornflowerblue",
+            inherit.aes = F,
+            width = 25
+        ) +
+        geom_point(
+            data = CIs[i, ],
+            aes(x = mode, y = ylims[2] * 0.9),
+            color = "cornflowerblue",
+            pch = 21,
+            fill = "white",
+            inherit.aes = F
+        ) +
+        scale_y_continuous(expand = c(0, 0)) +
+        labs(x = labs[i], title = LETTERS[i]) +
+        theme(
+            axis.text.y = element_blank(),
+            axis.title.y = element_blank(),
+            axis.ticks.y = element_blank()
+        )
+}
 
 
 
-        avreg <- ggplot(data.frame(), aes(0, 0)) +
-            coord_cartesian(xlim = c(200,1700), ylim = c(200,1700)) +
-            geom_abline(intercept = avtest_boots[, 1], slope = avtest_boots[, 2], alpha = 0.01, color = "grey50") +
-            geom_abline(intercept = avtest_boot$t0[1], slope = avtest_boot$t0[2], linewidth = 0.7, color = "cornflowerblue") +
-            labs(x = "Flat (ms)", y = "Percussive (ms)", title = "C") +
-            geom_polygon(
-                data = data.frame(
-                    x = c(0,0,365.6,365.6),
-                    y = c(0,2000,2000,0)
-                ),
-                aes(
-                    x = x,
-                    y = y
-                ),
-                linetype = 0,
-                fill = "white",
-                alpha = 0.5
-            ) +
-            geom_polygon(
-                data = data.frame(
-                    x = c(1228.1,1228.1,2000,2000),
-                    y = c(0,2000,2000,0)
-                ),
-                aes(
-                    x = x,
-                    y = y
-                ),
-                linetype = 0,
-                fill = "white",
-                alpha = 0.5
-            ) +
-            annotate(
-                "text",
-                x = 1000,
-                y = 500,
-                label = paste0(
-                    "y = ",
-                    round(avtest_boot$t0[1]),
-                    " + ",
-                    round(avtest_boot$t0[2], 2),
-                    "x"
-                ),
-                hjust = "left",
-                size = 4
-            ) +
-            annotate(
-                "text",
-                x = 1000,
-                y = 375,
-                label = paste0(
-                    "R^2 == ",
-                    round(r.squaredGLMM(avtest_model)[1], 2)
-                ),
-                parse = TRUE,
-                hjust = "left",
-                size = 4
-            )
+avreg <- ggplot(data.frame(), aes(0, 0)) +
+    coord_cartesian(xlim = c(200, 1700), ylim = c(200, 1700)) +
+    geom_abline(intercept = avtest_boots[, 1], slope = avtest_boots[, 2], alpha = 0.01, color = "grey50") +
+    geom_abline(intercept = avtest_boot$t0[1], slope = avtest_boot$t0[2], linewidth = 0.7, color = "cornflowerblue") +
+    labs(x = "Flat (ms)", y = "Percussive (ms)", title = "C") +
+    geom_polygon(
+        data = data.frame(
+            x = c(0, 0, 365.6, 365.6),
+            y = c(0, 2000, 2000, 0)
+        ),
+        aes(
+            x = x,
+            y = y
+        ),
+        linetype = 0,
+        fill = "white",
+        alpha = 0.5
+    ) +
+    geom_polygon(
+        data = data.frame(
+            x = c(1228.1, 1228.1, 2000, 2000),
+            y = c(0, 2000, 2000, 0)
+        ),
+        aes(
+            x = x,
+            y = y
+        ),
+        linetype = 0,
+        fill = "white",
+        alpha = 0.5
+    ) +
+    annotate(
+        "text",
+        x = 1000,
+        y = 500,
+        label = paste0(
+            "y = ",
+            round(avtest_boot$t0[1]),
+            " + ",
+            round(avtest_boot$t0[2], 2),
+            "x"
+        ),
+        hjust = "left",
+        size = 4
+    ) +
+    annotate(
+        "text",
+        x = 1000,
+        y = 375,
+        label = paste0(
+            "R^2 == ",
+            round(r.squaredGLMM(avtest_model)[1], 2)
+        ),
+        parse = TRUE,
+        hjust = "left",
+        size = 4
+    )
 (histlist[[1]] / histlist[[2]]) | avreg
-# ggsave("av_model.pdf", height = 6, width = 10)
+ggsave("av_model.pdf", height = 6, width = 10)
 ```
 
 ```{r}
@@ -1205,11 +1296,11 @@ together <- data.frame(
     int = c(0, 78, 0, 0),
     slope = c(1.49, 1.35, 1.53, 2)
 )
-together2 <- together[rep(seq_len(nrow(together)), each = 2),]
-together2$x <- c(350,1250,350,1250,250,1000,10,200)
+together2 <- together[rep(seq_len(nrow(together)), each = 2), ]
+together2$x <- c(350, 1250, 350, 1250, 250, 1000, 10, 200)
 together2$y <- together2$x * together2$slope + together2$int
-ggplot(data.frame(x = seq(1,10,1), y = seq(1,10,1)), aes(x = x, y = y)) +
-    coord_cartesian(xlim = c(0,1400), ylim = c(0,2000)) +
+ggplot(data.frame(x = seq(1, 10, 1), y = seq(1, 10, 1)), aes(x = x, y = y)) +
+    coord_cartesian(xlim = c(0, 1400), ylim = c(0, 2000)) +
     geom_point(alpha = 0) +
     geom_abline(data = together, aes(intercept = int, slope = slope, color = Model), alpha = 0.3, linetype = 2, show.legend = F) +
     geom_line(data = together2, aes(x = x, y = y, color = Model)) +
