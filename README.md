@@ -33,3 +33,4 @@
 * **Singing_score**: Singing ability subscale from GMSI.
 * **Emotion_score**: Musical emotion perception subscale from GMSI.
 * **General_score**: General subscale from GMSI.
+* **exp**: Which experiment did the data come from?

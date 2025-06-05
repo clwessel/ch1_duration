@@ -123,9 +123,16 @@ pse12 <- psefunc(data12)
 pse3 <- psefunc(data3)
 # Split by experiment
 exp1 <- data.frame(pse12[pse12$exp == "1",])
+exp1 <- groupedData(formula = y ~ x | Participant, data = exp1)
 exp2 <- data.frame(pse12[pse12$exp == "2",])
+exp2 <- groupedData(formula = y ~ x | Participant, data = exp2)
 exp3_hom <- data.frame(pse3[pse3$exp == "3a",])
+exp3_hom <- groupedData(formula = y ~ x | Participant, data = exp3_hom)
 exp3_het <- data.frame(pse3[pse3$exp == "3b",])
+exp3_het <- groupedData(formula = y ~ x | Participant, data = exp3_het)
+avtest <- rbind(exp3_het, exp2)
+avtest$dataset <- c(rep("A", 100), rep("B", 220))
+avtest <- groupedData(formula = y ~ x | dataset/Participant, data = avtest)
 
 
 # Setup for figures 4 and 6
@@ -159,16 +166,566 @@ pseall$m[pseall$type == "Homogenous" & pseall$Participant == "Overall" & pseall$
 pseall$m[pseall$type == "Heterogenous" & pseall$Participant == "Overall" & pseall$m != 200] <- 1700
 ```
 
+# Model building
+
+## Experiment 1
+```{r}
+# Experiment 1 - Random effects & varPower
+exp11 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 + x | Participant,
+    data = exp1,
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+exp12 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 0 + x | Participant,
+    data = exp1
+)
+
+exp13 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 | Participant,
+    data = exp1
+)
+
+exp14 <- gls(
+    y ~ x * envelope_1,
+    data = exp1
+)
+
+exp15 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 + x | Participant,
+    data = exp1,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp16 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 0 + x | Participant,
+    data = exp1,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp17 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 | Participant,
+    data = exp1,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp18 <- gls( # This is the best model
+    y ~ x * envelope_1,
+    data = exp1,
+    weights = varPower(form = ~ fitted(.))
+)
+
+anova(exp11,exp12,exp13,exp14,exp15,exp16,exp17,exp18)
+
+# Experiment 1 - selecting fixed effects
+
+exp1a <- exp18
+
+exp1b <- gls( 
+    y ~ x + envelope_1,
+    data = exp1,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp1c <- gls( 
+    y ~ x + x:envelope_1,
+    data = exp1,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp1d <- gls( # This is the best model
+    y ~ x,
+    data = exp1,
+    weights = varPower(form = ~ fitted(.))
+)
+
+anova(
+    update(exp1a, method = "ML"),
+    update(exp1b, method = "ML"),
+    update(exp1c, method = "ML"),
+    update(exp1d, method = "ML")
+)
+
+# Experiment 1 - Intercept and/or slope
+
+exp1i <- gls(
+    y ~ 1 + x,
+    data = exp1,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp1ii <- gls( # This is the best model
+    y ~ 0 + x,
+    data = exp1,
+    weights = varPower(form = ~ fitted(.))
+)
+
+anova(
+    update(exp1i, method = "ML"),
+    update(exp1ii, method = "ML")
+)
+```
+
+## Experiment 2
+```{r}
+# Experiment 2 - Random effects & varPower
+exp21 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 + x | Participant,
+    data = exp2,
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+exp22 <- lme( # This is the best model
+    fixed = y ~ x * envelope_1,
+    random = ~ 0 + x | Participant,
+    data = exp2
+)
+
+exp23 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 | Participant,
+    data = exp2
+)
+
+exp24 <- gls(
+    y ~ x * envelope_1,
+    data = exp2
+)
+
+exp25 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 + x | Participant,
+    data = exp2,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp26 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 0 + x | Participant,
+    data = exp2,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp27 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 | Participant,
+    data = exp2,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp28 <- gls(
+    y ~ x * envelope_1,
+    data = exp2,
+    weights = varPower(form = ~ fitted(.))
+)
+
+anova(exp21,exp22,exp23,exp24,exp25,exp26,exp27,exp28)
+
+# Experiment 2 - selecting fixed effects
+
+exp2a <- exp22
+
+exp2b <- lme(
+    fixed = y ~ x + envelope_1,
+    random = ~ 0 + x | Participant,
+    data = exp2
+)
+
+exp2c <- lme(
+    fixed = y ~ x + x:envelope_1,
+    random = ~ 0 + x | Participant,
+    data = exp2
+)
+
+exp2d <- lme( # This is the best model
+    fixed = y ~ x,
+    random = ~ 0 + x | Participant,
+    data = exp2
+)
+
+anova(
+    update(exp2a, method = "ML"),
+    update(exp2b, method = "ML"),
+    update(exp2c, method = "ML"),
+    update(exp2d, method = "ML")
+)
+
+# Experiment 2 - Intercept and/or slope
+
+exp2i <- lme( # This is the best model
+    fixed = y ~ 1 + x,
+    random = ~ 0 + x | Participant,
+    data = exp2
+)
+
+exp2ii <- lme(
+    fixed = y ~ 0 + x,
+    random = ~ 0 + x | Participant,
+    data = exp2
+)
+
+anova(
+    update(exp2i, method = "ML"),
+    update(exp2ii, method = "ML")
+)
+```
+
+## Experiment 3a
+```{r}
+# Experiment 3a - Random effects & varPower
+exp3_hom1 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 1 + x | Participant,
+    data = exp3_hom,
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+exp3_hom2 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 0 + x | Participant,
+    data = exp3_hom
+)
+
+exp3_hom3 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 1 | Participant,
+    data = exp3_hom
+)
+
+exp3_hom4 <- gls(
+    y ~ x * envelope_1 * repetition,
+    data = exp3_hom
+)
+
+exp3_hom5 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 1 + x | Participant,
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_hom6 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 0 + x | Participant,
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_hom7 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 1 | Participant,
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_hom8 <- gls( # This is the best model
+    y ~ x * envelope_1 * repetition,
+    data = exp3_hom,
+    weights = varPower(form = ~ fitted(.))
+)
+
+anova(exp3_hom1,exp3_hom2,exp3_hom3,exp3_hom4,exp3_hom5,exp3_hom6,exp3_hom7,exp3_hom8)
+
+# Experiment 3a - selecting fixed effects
+
+exp3_homa <- exp3_hom2
+
+exp3_homb <- gls(
+    y ~ x * envelope_1,
+    data = exp3_hom
+)
+
+exp3_homc <- gls(
+    y ~ x * repetition,
+    data = exp3_hom
+)
+
+exp3_homd <- gls(
+    y ~ x + envelope_1,
+    data = exp3_hom
+)
+
+exp3_home <- gls(
+    y ~ x + repetition,
+    data = exp3_hom
+)
+
+exp3_homf <- gls( # This is the best model
+    y ~ x,
+    data = exp3_hom
+)
+
+anova(
+    update(exp3_homa, method = "ML"),
+    update(exp3_homb, method = "ML"),
+    update(exp3_homc, method = "ML"),
+    update(exp3_homd, method = "ML"),
+    update(exp3_home, method = "ML"),
+    update(exp3_homf, method = "ML")
+)
+
+# Experiment 3a - Intercept and/or slope
+
+exp3_homi <- gls(
+    y ~ 1 + x,
+    data = exp3_hom
+)
+
+exp3_homii <- gls( # This is the best model
+    y ~ 0 + x,
+    data = exp3_hom
+)
+
+anova(
+    update(exp3_homi, method = "ML"),
+    update(exp3_homii, method = "ML")
+)
+```
+
+## Experiment 3b
+```{r}
+# Experiment 3b - Random effects & varPower
+exp3_het1 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 1 + x | Participant,
+    data = exp3_het,
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+exp3_het2 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 0 + x | Participant,
+    data = exp3_het
+)
+
+exp3_het3 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 1 | Participant,
+    data = exp3_het
+)
+
+exp3_het4 <- gls(
+    y ~ x * envelope_1 * repetition,
+    data = exp3_het
+)
+
+exp3_het5 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 1 + x | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_het6 <- lme( # This is the best model
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 0 + x | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_het7 <- lme(
+    fixed = y ~ x * envelope_1 * repetition,
+    random = ~ 1 | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_het8 <- gls(
+    y ~ x * envelope_1 * repetition,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+anova(exp3_het1,exp3_het2,exp3_het3,exp3_het4,exp3_het5,exp3_het6,exp3_het7,exp3_het8)
+
+# Experiment 3b - selecting fixed effects
+
+exp3_heta <- exp3_het6
+
+exp3_hetb <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 0 + x | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_hetc <- lme(
+    fixed = y ~ x * repetition,
+    random = ~ 0 + x | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_hetd <- lme(
+    fixed = y ~ x + envelope_1,
+    random = ~ 0 + x | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_hete <- lme( # This is the best model
+    fixed = y ~ x + repetition,
+    random = ~ 0 + x | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+exp3_hetf <- lme(
+    fixed = y ~ x,
+    random = ~ 0 + x | Participant,
+    data = exp3_het,
+    weights = varPower(form = ~ fitted(.))
+)
+
+anova(
+    update(exp3_heta, method = "ML"),
+    update(exp3_hetb, method = "ML"),
+    update(exp3_hetc, method = "ML"),
+    update(exp3_hetd, method = "ML"),
+    update(exp3_hete, method = "ML"),
+    update(exp3_hetf, method = "ML")
+)
+```
+
+## Aggregated model
+```{r}
+# Aggregated model - Random effects & varPower
+avtest1 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 + x | dataset/Participant,
+    data = avtest,
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+avtest2 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 0 + x | dataset/Participant,
+    data = avtest,
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+avtest3 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 | dataset/Participant,
+    data = avtest,
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+avtest4 <- gls(
+    y ~ x * envelope_1,
+    data = avtest,
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+avtest5 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 + x | dataset/Participant,
+    data = avtest,
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE),
+    weights = varPower(form = ~ fitted(.) | dataset)
+)
+
+avtest6 <- lme( # This is the best model
+    fixed = y ~ x * envelope_1,
+    random = ~ 0 + x | dataset/Participant,
+    data = avtest,
+    weights = varPower(form = ~ fitted(.) | dataset),
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+avtest7 <- lme(
+    fixed = y ~ x * envelope_1,
+    random = ~ 1 | dataset/Participant,
+    data = avtest,
+    weights = varPower(form = ~ fitted(.) | dataset),
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+avtest8 <- gls(
+    y ~ x * envelope_1,
+    data = avtest,
+    weights = varPower(form = ~ fitted(.) | dataset),
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+anova(avtest1,avtest2,avtest3,avtest4,avtest5,avtest6,avtest7,avtest8)
+
+# Aggregated model - selecting fixed effects
+
+avtesta <- avtest6
+
+avtestb <- lme(
+    fixed = y ~ x + envelope_1,
+    random = ~ 0 + x | dataset/Participant,
+    data = avtest,
+    weights = varPower(form = ~ fitted(.) | dataset),
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+avtestc <- lme(
+    fixed = y ~ x + x:envelope_1,
+    random = ~ 0 + x | dataset/Participant,
+    data = avtest,
+    weights = varPower(form = ~ fitted(.) | dataset),
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+avtestd <- lme( # This is the best model
+    fixed = y ~ x,
+    random = ~ 0 + x | dataset/Participant,
+    data = avtest,
+    weights = varPower(form = ~ fitted(.) | dataset),
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+anova(
+    update(avtesta, method = "ML"),
+    update(avtestb, method = "ML"),
+    update(avtestc, method = "ML"),
+    update(avtestd, method = "ML")
+)
+
+# Aggregated model - Intercept and/or slope
+
+avtesti <- lme( # This is the best model
+    fixed = y ~ 1 + x,
+    random = ~ 0 + x | dataset/Participant,
+    data = avtest,
+    weights = varPower(form = ~ fitted(.) | dataset),
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+avtestii <- lme(
+    fixed = y ~ 0 + x,
+    random = ~ 0 + x | dataset/Participant,
+    data = avtest,
+    weights = varPower(form = ~ fitted(.) | dataset),
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
+
+anova(
+    update(avtesti, method = "ML"),
+    update(avtestii, method = "ML")
+)
+```
+
 # Final models
 
 ```{r}
 # Experiment 1
-exp1 <- groupedData(formula = y ~ x | Participant, data = exp1)
-exp1_model <- gls(
-    y ~ x, 
-    data = exp1, 
+exp1_model <- gls( # This is the best model
+    y ~ 0 + x,
+    data = exp1,
     weights = varPower(form = ~ fitted(.))
-    )
+)
 summary(exp1_model)
 exp1$residuals <- residuals(exp1_model, type = "p")
 qqnorm(exp1$residuals)
@@ -178,12 +735,10 @@ exp1_boot <- boot_gls(exp1_model, cores = 8, R = 1000)
 
 ```{r}
 # Experiment 2
-exp2 <- groupedData(formula = y ~ x | Participant, data = exp2)
 exp2_model <- lme(
-    fixed = y ~ x,
-    random = ~ 1 + x | Participant,
-    data = exp2,
-    weights = varPower(form = ~ fitted(.))
+    fixed = y ~ 1 + x,
+    random = ~ 0 + x | Participant,
+    data = exp2
 )
 summary(exp2_model)
 exp2$residuals <- residuals(exp2_model, type = "p")
@@ -194,11 +749,9 @@ exp2_boot <- boot_lme(exp2_model, cores = 8, R = 1000)
 
 ```{r}
 # Experiment 3a
-exp3_hom <- groupedData(formula = y ~ x | Participant, data = exp3_hom)
 exp3_hom_model <- gls(
-    y ~ x,
-    data = exp3_hom,
-    weights = varPower(form = ~ fitted(.))
+    y ~ 0 + x,
+    data = exp3_hom
 )
 summary(exp3_hom_model)
 exp3_hom$residuals <- residuals(exp3_hom_model, type = "p")
@@ -209,10 +762,9 @@ exp3_hom_boot <- boot_gls(exp3_hom_model, cores = 8, R = 1000)
 
 ```{r}
 # Experiment 3b
-exp3_het <- groupedData(formula = y ~ x | Participant, data = exp3_het)
 exp3_het_model <- lme(
-    fixed = y ~ x,
-    random = ~ 1 + x | Participant,
+    fixed = y ~ x + repetition,
+    random = ~ 0 + x | Participant,
     data = exp3_het,
     weights = varPower(form = ~ fitted(.))
 )
@@ -225,15 +777,13 @@ exp3_het_boot <- boot_lme(exp3_het_model, cores = 8, R = 1000)
 
 ```{r}
 # Aggregate model from Experiments 2 and 3b
-avtest <- rbind(exp3_het, exp2)
-avtest$dataset <- c(rep("A", 100), rep("B", 220))
 avtest_model <- lme(
-        fixed = y ~ x,
-        random = ~ 1 + x | dataset/Participant,
-        data = avtest,
-        control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE),
-        weights = varPower(form = ~ fitted(.) | dataset)
-    )
+    fixed = y ~ 1 + x,
+    random = ~ 0 + x | dataset/Participant,
+    data = avtest,
+    weights = varPower(form = ~ fitted(.) | dataset),
+    control = lmeControl(maxIter = 200, opt = "optim", returnObject = TRUE)
+)
 summary(avtest_model)
 avtest$residuals <- residuals(avtest_model, type = "p")
 qqnorm(avtest$residuals)
