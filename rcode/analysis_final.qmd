@@ -1302,8 +1302,9 @@ together2$y <- together2$x * together2$slope + together2$int
 ggplot(data.frame(x = seq(1, 10, 1), y = seq(1, 10, 1)), aes(x = x, y = y)) +
     coord_cartesian(xlim = c(0, 1400), ylim = c(0, 2000)) +
     geom_point(alpha = 0) +
-    geom_abline(data = together, aes(intercept = int, slope = slope, color = Model), alpha = 0.3, linetype = 2, show.legend = F) +
-    geom_line(data = together2, aes(x = x, y = y, color = Model)) +
-    labs(x = "Flat (ms)", y = "Percussive (ms)")
-# ggsave("all_data_compared.pdf", width = 6, height = 5)
+    # geom_abline(data = together, aes(intercept = int, slope = slope, color = Model), alpha = 0.3, linetype = 2, show.legend = F) +
+    geom_line(data = together2, aes(x = x, y = y, color = Model, linetype = Model)) +
+    labs(x = "Flat (ms)", y = "Percussive (ms)") +
+    scale_linetype_manual(values = c(1,2,2,2))
+ggsave("all_data_compared.pdf", width = 6, height = 5)
 ```
